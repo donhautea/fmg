@@ -12,7 +12,7 @@ def show_equities_page():
     if uploaded_price_file is not None:
         df_price = pd.read_csv(uploaded_price_file)
     else:
-        df_price = pd.read_csv(r"Input_data\clean_prices.csv")
+        df_price = pd.read_csv(r"clean_prices.csv")
 
     # Load Portfolio Returns and Weights
     st.sidebar.header("Load Portfolio Returns and Weights")
@@ -20,7 +20,7 @@ def show_equities_page():
     if uploaded_port_file is not None:
         df_port = pd.read_csv(uploaded_port_file)
     else:
-        df_port = pd.read_csv(r"Input_data\MPFPortfolio.csv")
+        df_port = pd.read_csv(r"MPFPortfolio.csv")
 
     # Prepare price dataset
     df = df_price.copy()

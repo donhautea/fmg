@@ -44,7 +44,7 @@ def show_fixed_income_page():
             st.error(f"Error reading uploaded file: {e}")
     else:
         # Load default Excel file if no upload
-        default_path = r"Input_data\FIID_Data.xlsx"
+        default_path = r"FIID_Data.xlsx"
         if os.path.exists(default_path):
             try:
                 excel = pd.ExcelFile(default_path)

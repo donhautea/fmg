@@ -120,9 +120,9 @@ def show_collection_page():
         else:
             # Load default processed file based on plan
             if plan_type == "MPF":
-                default_path = r"D:\Files\2025_SSS\Equity Instructions\Optimization\Input_data\MPF_Collection.csv"
+                default_path = r"MPF_Collection.csv"
             else:
-                default_path = r"D:\Files\2025_SSS\Equity Instructions\Optimization\Input_data\NVPF_Collection.csv"
+                default_path = r"NVPF_Collection.csv"
 
             if os.path.exists(default_path):
                 try:
