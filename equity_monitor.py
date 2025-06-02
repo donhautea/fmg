@@ -3,8 +3,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def show_equity_monitor_page():
-    # Removed st.set_page_config to prevent StreamlitSetPageConfigMustBeFirstCommandError
+    # Wide layout set in main_app.py via st.set_page_config(..., layout="wide")
     st.title("📊 Equity Database Monitoring")
+    st.markdown("""
+        <style>
+        .main .block-container {
+            padding-left: 2rem;
+            padding-right: 2rem;
+            max-width: 100% !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
     # Sidebar: Upload Excel file
     st.sidebar.header("Upload Excel File")
