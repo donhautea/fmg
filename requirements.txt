@@ -4,3 +4,4 @@ tabula-py
 numpy
 openpyxl
 pdfplumber
+matplotlib.pyplot
