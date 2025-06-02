@@ -1,7 +1,7 @@
 import streamlit as st
 
 def main():
-    st.set_page_config(page_title="Investment Analysis App", layout="wide")
+    #st.set_page_config(page_title="Investment Analysis App", layout="wide")
     st.title("Investment Portfolio Analysis")
 
     page = st.sidebar.selectbox(
