@@ -6,28 +6,37 @@ def main():
 
     page = st.sidebar.selectbox(
         "Select Analysis Page:",
-        ["Collection Report", "Equities", "Fixed Income", "Money Market", "Reference"]
+        [
+            "Collection Report",
+            "Equity Portfolio Analysis",
+            "Equity Portfolio Monitoring",
+            "Fixed Income",
+            "Money Market",
+            "Reference"
+        ]
     )
 
     if page == "Collection Report":
-        # Import and call the function in collection.py
         from collection import show_collection_page
         show_collection_page()
+
+    elif page == "Equity Portfolio Analysis":
+        from equities import show_equities_page
+        show_equities_page()
+
+    elif page == "Equity Portfolio Monitoring":
+        from equity_monitor import show_equity_monitor_page
+        show_equity_monitor_page()
 
     elif page == "Fixed Income":
         from fixed_income import show_fixed_income_page
         show_fixed_income_page()
-
-    elif page == "Equities":
-        from equities import show_equities_page
-        show_equities_page()
 
     elif page == "Money Market":
         st.info("Money Market analysis coming soon.")
 
     elif page == "Reference":
         st.info("Reference data and tools coming soon.")
-
 
 if __name__ == "__main__":
     main()
