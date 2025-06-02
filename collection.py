@@ -4,21 +4,41 @@ import os
 import tempfile
 import pdfplumber
 
+import pdfplumber
+import pandas as pd
+
 def extract_pdf_with_pdfplumber(file_path, plan_type):
+    """
+    Extract tables from a PDF file using pdfplumber with structure validation.
+    
+    Args:
+        file_path (str): Local path to the uploaded PDF
+        plan_type (str): "MPF" or "NVPF" to determine column header structure
+
+    Returns:
+        pd.DataFrame or None
+    """
     dfs = []
     try:
         with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
+            for page_num, page in enumerate(pdf.pages, start=1):
                 table = page.extract_table()
-                if table:
-                    df = pd.DataFrame(table[1:], columns=table[0])
-                    if df.empty:
-                        continue
+                if not table:
+                    continue
 
-                    df = df.iloc[3:].reset_index(drop=True)
+                df = pd.DataFrame(table[1:], columns=table[0])
+                if df.empty or df.shape[0] < 3:
+                    continue
 
-                    if plan_type == "MPF":
-                        df = df.iloc[:, :18]
+                # Drop first 3 header rows as originally done
+                df = df.iloc[3:].reset_index(drop=True)
+
+                col_count = df.shape[1]
+
+                if plan_type == "MPF":
+                    expected_cols = 18
+                    if col_count >= expected_cols:
+                        df = df.iloc[:, :expected_cols]
                         df.columns = [
                             "Payment_Date", "Posting_Date",
                             "ER_Num", "ER_Amount",
@@ -30,8 +50,15 @@ def extract_pdf_with_pdfplumber(file_path, plan_type):
                             "NWS_Num", "NWS_Amount",
                             "Total_Num", "Total_Amount"
                         ]
-                    else:  # NVPF
-                        df = df.iloc[:, :14]
+                    else:
+                        raise ValueError(
+                            f"Page {page_num}: Expected at least {expected_cols} columns for MPF, but got {col_count}."
+                        )
+
+                elif plan_type == "NVPF":
+                    expected_cols = 14
+                    if col_count >= expected_cols:
+                        df = df.iloc[:, :expected_cols]
                         df.columns = [
                             "Payment_Date", "Posting_Date",
                             "EE_Num", "EE_Amount",
@@ -41,17 +68,26 @@ def extract_pdf_with_pdfplumber(file_path, plan_type):
                             "NWS_Num", "NWS_Amount",
                             "Total_Num", "Total_Amount"
                         ]
+                    else:
+                        raise ValueError(
+                            f"Page {page_num}: Expected at least {expected_cols} columns for NVPF, but got {col_count}."
+                        )
+                else:
+                    raise ValueError(f"Invalid plan_type: {plan_type}")
 
-                    df = df[df["Payment_Date"]
-                            .astype(str)
-                            .str.strip()
-                            .str.upper() != "TOTAL"]
-                    dfs.append(df)
+                # Remove TOTAL rows from Payment_Date
+                df = df[df["Payment_Date"]
+                        .astype(str)
+                        .str.strip()
+                        .str.upper() != "TOTAL"]
+
+                dfs.append(df)
 
         return pd.concat(dfs, ignore_index=True) if dfs else None
 
     except Exception as e:
         raise RuntimeError(f"Error processing PDF with pdfplumber: {e}")
+
 
 def show_collection_page():
     st.sidebar.header("Data Source Selection")
