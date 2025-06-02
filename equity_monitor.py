@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def show_equity_monitor_page():
-    st.set_page_config(page_title="Equity Database Monitoring", layout="wide")
+    # Removed st.set_page_config to prevent StreamlitSetPageConfigMustBeFirstCommandError
     st.title("📊 Equity Database Monitoring")
 
     # Sidebar: Upload Excel file
@@ -161,4 +161,4 @@ def show_equity_monitor_page():
         else:
             st.warning("No valid data loaded for the selected fund(s) and date range.")
     else:
-        st.info("📅 Please upload an Excel file with the required sheet structure to begin.")
+        st.info("📥 Please upload an Excel file with the required sheet structure to begin.")
