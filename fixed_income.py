@@ -1,3 +1,6 @@
+# fixed_income.py
+# Note: Remove set_page_config from this module to avoid multiple invocation errors
+
 import streamlit as st
 import pandas as pd
 import os
@@ -55,7 +58,6 @@ def show_fixed_income_page():
 
     df = data_storage[selected_dataset]
     if df is not None:
-        # Standardize date formats
         for date_col in ["Issue_Date", "Value_Date", "Maturity_Date"]:
             if date_col in df.columns:
                 df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
@@ -63,88 +65,79 @@ def show_fixed_income_page():
         st.subheader(f"Viewing: {selected_dataset}")
         st.dataframe(df.style.format(na_rep="-", formatter={col: "{:,.2f}" for col in df.select_dtypes(include='number').columns}))
 
-        if selected_dataset in ["GS_Consolidated_Php", "GS_Consolidated_USD"]:
-            st.sidebar.subheader("Reports on Maturities")
-            maturity_option = st.sidebar.radio("Maturity Range", ["All Maturities", "For the Month", "For the Year"])
+        # Reports on Maturities
+        st.sidebar.subheader("Reports on Maturities")
+        maturity_option = st.sidebar.radio("Maturity Range", ["All Maturities", "For the Month", "For the Year"])
+        df["Maturity_Date"] = pd.to_datetime(df["Maturity_Date"], errors='coerce')
+        today = pd.Timestamp.today().normalize()
+        if maturity_option == "For the Month":
+            df_maturity = df[df["Maturity_Date"].dt.to_period("M") == today.to_period("M")]
+        elif maturity_option == "For the Year":
+            df_maturity = df[df["Maturity_Date"].dt.year == today.year]
+        else:
+            df_maturity = df[df["Maturity_Date"] >= today]
+        df_maturity["Maturity_Date"] = df_maturity["Maturity_Date"].dt.strftime("%Y-%m-%d")
 
-            df["Maturity_Date"] = pd.to_datetime(df["Maturity_Date"], errors='coerce')
-            today = pd.Timestamp.today().normalize()
+        funds = ["SSS", "EC", "FLEXI", "PESO", "MIA", "MPF", "NVPF"] if selected_dataset.startswith("GS") else ["SSS", "EC", "FLEXI", "MIA", "MPF", "NVPF"]
+        total_dict = {}
+        conversion_applied = False
 
-            if maturity_option == "For the Month":
-                df_maturity = df[df["Maturity_Date"].dt.to_period("M") == today.to_period("M")]
-            elif maturity_option == "For the Year":
-                df_maturity = df[df["Maturity_Date"].dt.year == today.year]
+        for fund in funds:
+            col = f"Face_Amount_{fund}" if selected_dataset.startswith("GS") else f"{fund}_Outstanding"
+            if col in df_maturity.columns:
+                values = pd.to_numeric(df_maturity[col], errors="coerce")
+                if selected_dataset.endswith("_USD") and exchange_rate:
+                    values *= exchange_rate
+                    conversion_applied = True
+                total_dict[fund] = values.sum()
+                df_maturity[col] = values
             else:
-                df_maturity = df[df["Maturity_Date"] >= today]
+                total_dict[fund] = 0
 
-            df_maturity["Maturity_Date"] = df_maturity["Maturity_Date"].dt.strftime("%Y-%m-%d")
+        remark_col = "Reference" if selected_dataset.startswith("GS") else "Issuer"
+        df_maturity["Remarks"] = df_maturity[remark_col].astype(str) if remark_col in df_maturity.columns else ""
+        display_cols = ["Maturity_Date"] + [col for col in df_maturity.columns if col.startswith("Face_Amount_") or col.endswith("_Outstanding")] + ["Remarks"]
+        currency_display = "PhP" if conversion_applied or selected_dataset.endswith("_Php") else "USD"
 
-            funds = ["SSS", "EC", "FLEXI", "PESO", "MIA", "MPF", "NVPF"]
-            total_dict = {}
-            conversion_applied = False
+        st.subheader(f"\U0001F4C5 Maturities Report: {maturity_option} ({currency_display})")
+        st.dataframe(df_maturity[display_cols].style.format({col: "{:,.2f}" for col in display_cols if col != "Maturity_Date" and col != "Remarks"}))
 
-            for fund in funds:
-                col = f"Face_Amount_{fund}"
-                if col in df_maturity.columns:
-                    values = pd.to_numeric(df_maturity[col], errors="coerce")
-                    if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
-                        values *= exchange_rate
-                        conversion_applied = True
-                    total_dict[fund] = values.sum()
-                    df_maturity[col] = values
-                else:
-                    total_dict[fund] = 0
+        st.markdown(f"### \U0001F522 Total Amount by Fund ({currency_display})")
+        st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
 
-            df_maturity["Remarks"] = df_maturity["Reference"].astype(str) if "Reference" in df_maturity.columns else ""
-            display_cols = ["Maturity_Date"] + [f"Face_Amount_{f}" for f in funds if f"Face_Amount_{f}" in df.columns] + ["Remarks"]
-            currency_display = "PhP" if conversion_applied or selected_dataset == "GS_Consolidated_Php" else "USD"
+        # Filtering Reports by Reference and Fund
+        st.subheader("\U0001F50D Filtering Reports by Reference and Fund")
 
-            st.subheader(f"\U0001F4C5 Maturities Report: {maturity_option} ({currency_display})")
-            st.dataframe(df_maturity[display_cols].style.format({col: "{:,.2f}" for col in display_cols if "Face_Amount_" in col}))
+        reference_column = "Reference" if selected_dataset.startswith("GS") else "Issuer"
+        if reference_column in df.columns:
+            references = sorted(df[reference_column].dropna().unique())
+            selected_reference = st.selectbox("Select Reference", ["All"] + references)
+            if selected_reference != "All":
+                df = df[df[reference_column] == selected_reference]
 
-            st.markdown(f"### \U0001F522 Total Face Amount by Fund ({currency_display})")
-            st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
+        fund_cols = [col for col in df.columns if "Face_Amount_" in col or "_Outstanding" in col]
+        selected_fund_col = st.selectbox("Select Fund Column", fund_cols)
 
-        if selected_dataset in ["CBN_Php", "CBN_USD"]:
-            st.sidebar.subheader("Reports on Maturities")
-            maturity_option = st.sidebar.radio("Maturity Range", ["All Maturities", "For the Month", "For the Year"])
+        if "Remaining_Term_Yrs" in df.columns:
+            term_min, term_max = float(df["Remaining_Term_Yrs"].min()), float(df["Remaining_Term_Yrs"].max())
+            selected_term = st.slider("Filter by Remaining Term (Years)", min_value=term_min, max_value=term_max, value=(term_min, term_max))
+            df = df[df["Remaining_Term_Yrs"].between(*selected_term)]
 
-            df["Maturity_Date"] = pd.to_datetime(df["Maturity_Date"], errors='coerce')
-            today = pd.Timestamp.today().normalize()
-
-            if maturity_option == "For the Month":
-                df_maturity = df[df["Maturity_Date"].dt.to_period("M") == today.to_period("M")]
-            elif maturity_option == "For the Year":
-                df_maturity = df[df["Maturity_Date"].dt.year == today.year]
+        if selected_fund_col in df.columns:
+            values = pd.to_numeric(df[selected_fund_col], errors="coerce")
+            if selected_dataset.endswith("_USD") and exchange_rate:
+                values *= exchange_rate
+                currency_label = "PhP"
             else:
-                df_maturity = df[df["Maturity_Date"] >= today]
+                currency_label = "USD" if selected_dataset.endswith("_USD") else "PhP"
 
-            df_maturity["Maturity_Date"] = df_maturity["Maturity_Date"].dt.strftime("%Y-%m-%d")
+            total = values.sum()
+            st.markdown(f"### \U0001F4B0 Total for **{selected_fund_col}**: {total:,.2f} {currency_label}")
 
-            funds = ["SSS", "EC", "FLEXI", "MIA", "MPF", "NVPF"]
-            total_dict = {}
-            conversion_applied = False
-
-            for fund in funds:
-                col = f"{fund}_Outstanding"
-                if col in df_maturity.columns:
-                    values = pd.to_numeric(df_maturity[col], errors="coerce")
-                    if selected_dataset == "CBN_USD" and exchange_rate:
-                        values *= exchange_rate
-                        conversion_applied = True
-                    total_dict[fund] = values.sum()
-                    df_maturity[col] = values
-                else:
-                    total_dict[fund] = 0
-
-            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str) if "Issuer" in df_maturity.columns else ""
-            display_cols = ["Maturity_Date"] + [f"{f}_Outstanding" for f in funds if f"{f}_Outstanding" in df.columns] + ["Remarks"]
-            currency_display = "PhP" if conversion_applied or selected_dataset == "CBN_Php" else "USD"
-
-            st.subheader(f"\U0001F4C5 Maturities Report: {maturity_option} ({currency_display})")
-            st.dataframe(df_maturity[display_cols].style.format({col: "{:,.2f}" for col in display_cols if "_Outstanding" in col}))
-
-            st.markdown(f"### \U0001F522 Total Outstanding Amount by Fund ({currency_display})")
-            st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
+            display_cols = [selected_fund_col, reference_column, "Maturity_Date"]
+            if "Remaining_Term_Yrs" in df.columns:
+                display_cols.append("Remaining_Term_Yrs")
+            formatters = {col: "{:,.2f}" for col in display_cols if df[col].dtype.kind in "fi"}
+            st.dataframe(df[display_cols].style.format(formatters))
     else:
         st.warning(f"{selected_dataset} not yet loaded. Please upload a file or check the default path.")
