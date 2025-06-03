@@ -1,10 +1,10 @@
-# fixed_income.py
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
 
 def show_fixed_income_page():
-    st.sidebar.title("📂 Fixed Income File Loader")
+    st.sidebar.title("\U0001F4C2 Fixed Income File Loader")
     uploaded_file = st.sidebar.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
 
     dataset_names = ["GS_Consolidated_Php", "GS_Consolidated_USD", "CBN_Php", "CBN_USD"]
@@ -20,13 +20,9 @@ def show_fixed_income_page():
             currency_label = "PhP" if exchange_rate else "USD"
         except ValueError:
             st.sidebar.error("Invalid exchange rate. Please enter a valid number.")
-    else:
-        currency_label = "PhP"
 
-    # Initialize container for all datasets
     data_storage = {name: None for name in dataset_names}
 
-    # Attempt to load uploaded file or default file
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
@@ -43,7 +39,6 @@ def show_fixed_income_page():
         except Exception as e:
             st.error(f"Error reading uploaded file: {e}")
     else:
-        # Load default Excel file if no upload
         default_path = r"FIID_Data.xlsx"
         if os.path.exists(default_path):
             try:
@@ -56,97 +51,100 @@ def show_fixed_income_page():
         else:
             st.warning("No file uploaded and default file not found.")
 
-    st.title("📊 Fixed Income Dataset Viewer")
+    st.title("\U0001F4CA Fixed Income Dataset Viewer")
 
     df = data_storage[selected_dataset]
     if df is not None:
-        st.subheader(f"Viewing: {selected_dataset}")
-        st.dataframe(df)
+        # Standardize date formats
+        for date_col in ["Issue_Date", "Value_Date", "Maturity_Date"]:
+            if date_col in df.columns:
+                df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
 
-        st.subheader("📑 Summary by Fund and Classification")
+        st.subheader(f"Viewing: {selected_dataset}")
+        st.dataframe(df.style.format(na_rep="-", formatter={col: "{:,.2f}" for col in df.select_dtypes(include='number').columns}))
+
+        if selected_dataset in ["GS_Consolidated_Php", "GS_Consolidated_USD"]:
+            st.sidebar.subheader("Reports on Maturities")
+            maturity_option = st.sidebar.radio("Maturity Range", ["All Maturities", "For the Month", "For the Year"])
+
+            df["Maturity_Date"] = pd.to_datetime(df["Maturity_Date"], errors='coerce')
+            today = pd.Timestamp.today().normalize()
+
+            if maturity_option == "For the Month":
+                df_maturity = df[df["Maturity_Date"].dt.to_period("M") == today.to_period("M")]
+            elif maturity_option == "For the Year":
+                df_maturity = df[df["Maturity_Date"].dt.year == today.year]
+            else:
+                df_maturity = df[df["Maturity_Date"] >= today]
+
+            df_maturity["Maturity_Date"] = df_maturity["Maturity_Date"].dt.strftime("%Y-%m-%d")
+
+            funds = ["SSS", "EC", "FLEXI", "PESO", "MIA", "MPF", "NVPF"]
+            total_dict = {}
+            conversion_applied = False
+
+            for fund in funds:
+                col = f"Face_Amount_{fund}"
+                if col in df_maturity.columns:
+                    values = pd.to_numeric(df_maturity[col], errors="coerce")
+                    if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
+                        values *= exchange_rate
+                        conversion_applied = True
+                    total_dict[fund] = values.sum()
+                    df_maturity[col] = values
+                else:
+                    total_dict[fund] = 0
+
+            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str)
+            display_cols = ["Maturity_Date"] + [f"Face_Amount_{f}" for f in funds if f"Face_Amount_{f}" in df.columns] + ["Remarks"]
+            currency_display = "PhP" if conversion_applied or selected_dataset == "GS_Consolidated_Php" else "USD"
+
+            st.subheader(f"\U0001F4C5 Maturities Report: {maturity_option} ({currency_display})")
+            st.dataframe(df_maturity[display_cols].style.format({col: "{:,.2f}" for col in display_cols if "Face_Amount_" in col}))
+
+            st.markdown(f"### \U0001F522 Total Face Amount by Fund ({currency_display})")
+            st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
 
         if selected_dataset in ["CBN_Php", "CBN_USD"]:
-            group_by_option = st.selectbox("Group by:", options=["Group", "Issuer", "Type"])
-            fund_options = ["SSS", "EC", "FLEXI", "MIA", "MPF", "NVPF", "Consolidated"]
-            selected_fund = st.selectbox("Select Fund:", options=fund_options)
+            st.sidebar.subheader("Reports on Maturities")
+            maturity_option = st.sidebar.radio("Maturity Range", ["All Maturities", "For the Month", "For the Year"])
 
-            fund_column = "Outstanding_Balance" if selected_fund == "Consolidated" else f"{selected_fund}_Outstanding"
+            df["Maturity_Date"] = pd.to_datetime(df["Maturity_Date"], errors='coerce')
+            today = pd.Timestamp.today().normalize()
 
-            if fund_column not in df.columns:
-                st.warning(f"{fund_column} column not found in the dataset.")
-                return
+            if maturity_option == "For the Month":
+                df_maturity = df[df["Maturity_Date"].dt.to_period("M") == today.to_period("M")]
+            elif maturity_option == "For the Year":
+                df_maturity = df[df["Maturity_Date"].dt.year == today.year]
+            else:
+                df_maturity = df[df["Maturity_Date"] >= today]
 
-            df[fund_column] = pd.to_numeric(df[fund_column], errors='coerce')
-            if selected_dataset == "CBN_USD" and exchange_rate:
-                df[fund_column] *= exchange_rate
+            df_maturity["Maturity_Date"] = df_maturity["Maturity_Date"].dt.strftime("%Y-%m-%d")
 
-            grouped_df = (
-                df.groupby(group_by_option)[fund_column]
-                .sum()
-                .reset_index()
-                .rename(columns={fund_column: f"{selected_fund} Outstanding"})
-                .sort_values(by=f"{selected_fund} Outstanding", ascending=False)
-            )
+            funds = ["SSS", "EC", "FLEXI", "MIA", "MPF", "NVPF"]
+            total_dict = {}
+            conversion_applied = False
 
-            st.markdown(f"### 💰 Outstanding Amount by {group_by_option} ({selected_fund}) in {currency_label}")
-            st.dataframe(grouped_df.style.format({f"{selected_fund} Outstanding": "{:,.2f}"}))
+            for fund in funds:
+                col = f"{fund}_Outstanding"
+                if col in df_maturity.columns:
+                    values = pd.to_numeric(df_maturity[col], errors="coerce")
+                    if selected_dataset == "CBN_USD" and exchange_rate:
+                        values *= exchange_rate
+                        conversion_applied = True
+                    total_dict[fund] = values.sum()
+                    df_maturity[col] = values
+                else:
+                    total_dict[fund] = 0
 
-        else:
-            fund_map = {
-                "SSS": ("Settlement_Amount_SSS", "Face_Amount_SSS"),
-                "EC": ("Settlement_Amount_EC", "Face_Amount_EC"),
-                "FLEXI": ("Settlement_Amount_FLEXI", "Face_Amount_FLEXI"),
-                "PESO": ("Settlement_Amount_PESO", "Face_Amount_PESO"),
-                "MIA": ("Settlement_Amount_MIA", "Face_Amount_MIA"),
-                "MPF": ("Settlement_Amount_MPF", "Face_Amount_MPF"),
-                "NVPF": ("Settlement_Amount_NVPF", "Face_Amount_NVPF")
-            }
+            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str)
+            display_cols = ["Maturity_Date"] + [f"{f}_Outstanding" for f in funds if f"{f}_Outstanding" in df.columns] + ["Remarks"]
+            currency_display = "PhP" if conversion_applied or selected_dataset == "CBN_Php" else "USD"
 
-            classes = ["AC", "FVTPL", "FVOCI"]
-            settlement_rows = []
-            for class_val in classes:
-                class_data = df[df["Class"] == class_val]
-                row = {"Class": class_val}
-                for fund, (settle_col, _) in fund_map.items():
-                    val = pd.to_numeric(class_data.get(settle_col, pd.Series()), errors='coerce').sum()
-                    if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
-                        val *= exchange_rate
-                    row[fund] = val
-                settlement_rows.append(row)
+            st.subheader(f"\U0001F4C5 Maturities Report: {maturity_option} ({currency_display})")
+            st.dataframe(df_maturity[display_cols].style.format({col: "{:,.2f}" for col in display_cols if "_Outstanding" in col}))
 
-            total_row = {"Class": "Total"}
-            for fund, (settle_col, _) in fund_map.items():
-                val = pd.to_numeric(df.get(settle_col, pd.Series()), errors='coerce').sum()
-                if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
-                    val *= exchange_rate
-                total_row[fund] = val
-            settlement_rows.append(total_row)
-
-            settlement_df = pd.DataFrame(settlement_rows).set_index("Class")
-            st.markdown(f"### 💰 Settlement Amount Summary ({currency_label})")
-            st.dataframe(settlement_df.style.format("{:,.2f}"))
-
-            face_rows = []
-            for class_val in classes:
-                class_data = df[df["Class"] == class_val]
-                row = {"Class": class_val}
-                for fund, (_, face_col) in fund_map.items():
-                    val = pd.to_numeric(class_data.get(face_col, pd.Series()), errors='coerce').sum()
-                    if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
-                        val *= exchange_rate
-                    row[fund] = val
-                face_rows.append(row)
-
-            total_row = {"Class": "Total"}
-            for fund, (_, face_col) in fund_map.items():
-                val = pd.to_numeric(df.get(face_col, pd.Series()), errors='coerce').sum()
-                if selected_dataset == "GS_Consolidated_USD" and exchange_rate:
-                    val *= exchange_rate
-                total_row[fund] = val
-            face_rows.append(total_row)
-
-            face_df = pd.DataFrame(face_rows).set_index("Class")
-            st.markdown(f"### 🧾 Face Amount Summary ({currency_label})")
-            st.dataframe(face_df.style.format("{:,.2f}"))
+            st.markdown(f"### \U0001F522 Total Outstanding Amount by Fund ({currency_display})")
+            st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
     else:
         st.warning(f"{selected_dataset} not yet loaded. Please upload a file or check the default path.")
