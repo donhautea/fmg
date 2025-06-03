@@ -95,7 +95,7 @@ def show_fixed_income_page():
                 else:
                     total_dict[fund] = 0
 
-            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str)
+            df_maturity["Remarks"] = df_maturity["Reference"].astype(str) if "Reference" in df_maturity.columns else ""
             display_cols = ["Maturity_Date"] + [f"Face_Amount_{f}" for f in funds if f"Face_Amount_{f}" in df.columns] + ["Remarks"]
             currency_display = "PhP" if conversion_applied or selected_dataset == "GS_Consolidated_Php" else "USD"
 
@@ -137,7 +137,7 @@ def show_fixed_income_page():
                 else:
                     total_dict[fund] = 0
 
-            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str)
+            df_maturity["Remarks"] = df_maturity["Issuer"].astype(str) if "Issuer" in df_maturity.columns else ""
             display_cols = ["Maturity_Date"] + [f"{f}_Outstanding" for f in funds if f"{f}_Outstanding" in df.columns] + ["Remarks"]
             currency_display = "PhP" if conversion_applied or selected_dataset == "CBN_Php" else "USD"
 
