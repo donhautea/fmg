@@ -132,7 +132,7 @@ if DEFAULT_USER not in users:
     save_users(users, USER_FILE)
 
 if st.session_state.logged_in:
-    import main
-    main.main()
+    import main_app
+    main_app.main()
 else:
     login_page()
