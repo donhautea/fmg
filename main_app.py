@@ -11,7 +11,7 @@ def main():
             "Equity Portfolio Analysis",
             "Equity Portfolio Monitoring",
             "Fixed Income",
-            "Money Market",
+            "Portfolio / ROI",
             "Reference"
         ]
     )
@@ -32,8 +32,9 @@ def main():
         from fixed_income import show_fixed_income_page
         show_fixed_income_page()
 
-    elif page == "Money Market":
-        st.info("Money Market analysis coming soon.")
+    elif page == "Portfolio / ROI":
+        from portfolio_roi import show_portfolio_roi_page
+        show_portfolio_roi_page()
 
     elif page == "Reference":
         st.info("Reference data and tools coming soon.")
