@@ -1,130 +1,132 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import calendar
 
 def show_portfolio_roi_page():
+    st.title("📊 Fund-Specific Summary Report")
+
     st.sidebar.header("Upload Excel File")
-    uploaded_file = st.sidebar.file_uploader("Upload Excel (.xlsx) file", type=["xlsx"])
+    uploaded_file = st.sidebar.file_uploader("Choose an Excel file (.xlsx)", type="xlsx")
 
-    def convert_to_end_of_month(label):
-        try:
-            if "as of" in label:
-                parts = label.strip().split()
-                month = datetime.strptime(parts[2], "%B").month
-                year = int(parts[3])
-                last_day = calendar.monthrange(year, month)[1]
-                return datetime(year, month, last_day).strftime('%Y-%m-%d')
-        except:
-            return None
+    fund_ranges = {
+        'MPF':   ('B', 'G'),
+        'NVPF':  ('H', 'M'),
+        'FLEXI': ('N', 'S'),
+        'PESO':  ('T', 'Y'),
+        'MIA':   ('Z', 'AE'),
+    }
 
-    def extract_section(sheet_df, date_row, rows_map, capital_market_row=None, percent=False):
-        data_start_col = 12  # Column M
-        date_row_values = sheet_df.iloc[date_row, data_start_col:]
-        last_col = date_row_values.last_valid_index()
-        if last_col is None:
-            return pd.DataFrame()
-        end_col = last_col + 1
-        date_labels = sheet_df.iloc[date_row, data_start_col:end_col]
-        dates = date_labels.apply(lambda x: convert_to_end_of_month(str(x)))
+    asset_order = [
+        "Money Market",
+        "Capital Market",
+        "Government Securities",
+        "Corporate Notes and Bonds",
+        "Equities",
+    ]
 
-        data = {}
-        if capital_market_row is not None:
-            values = pd.to_numeric(sheet_df.iloc[capital_market_row, data_start_col:end_col].values, errors='coerce')
-            if percent:
-                values *= 100
-            label = "Capital Market" if percent else "Capital Markets"
-            data[label] = values
+    sheet_names = ["ROI", "INVESTMENT_LEVEL", "INVESTMENT_INCOME"]
 
-        for label, row in rows_map.items():
-            row_values = sheet_df.iloc[row, data_start_col:end_col]
-            valid_values = pd.to_numeric(row_values.values, errors='coerce')
-            if percent:
-                valid_values *= 100
-            data[label] = valid_values
+    def col_letter_to_index(col):
+        col = col.upper()
+        index = 0
+        for i, char in enumerate(reversed(col)):
+            index += (ord(char) - ord('A') + 1) * (26 ** i)
+        return index - 1
 
-        df = pd.DataFrame(data, index=dates[:len(next(iter(data.values())))]).dropna()
-        df.index.name = "Date"
-        df = df.sort_index(ascending=False)
+    def extract_fund_data(df_raw, start_col_letter, end_col_letter, sheet_name=None, format_roi=False):
+        start_col = col_letter_to_index(start_col_letter)
+        end_col = col_letter_to_index(end_col_letter) + 1
+        headers = [str(h).strip() for h in df_raw.iloc[1, start_col:end_col].tolist()]
+        data = df_raw.iloc[2:, start_col:end_col].copy()
+        data.columns = headers
+        data.insert(0, 'Date', pd.to_datetime(df_raw.iloc[2:, 0], errors='coerce').dt.strftime('%Y-%m-%d'))
 
-        desired_order = [col for col in ["Money Market", "Capital Market", "Capital Markets"] if col in df.columns]
-        remaining_cols = [col for col in df.columns if col not in desired_order]
-        df = df[desired_order + remaining_cols]
+        if sheet_name == "ROI" and format_roi:
+            for col in data.columns[1:]:
+                data[col] = pd.to_numeric(data[col], errors='coerce') * 100
+                data[col] = data[col].map(lambda x: f"{x:.3f}%" if pd.notnull(x) else "")
 
-        return df
+        return data.dropna(subset=['Date'])
 
     if uploaded_file:
-        excel = pd.ExcelFile(uploaded_file)
-        sheet_names = [s for s in excel.sheet_names if s.startswith("FS")]
-        st.title("Extracted Fund Data")
+        st.success("✅ File uploaded successfully")
 
-        all_data = {}
-        all_dates = set()
+        raw_sheets = {}
+        for sheet in sheet_names:
+            raw_sheets[sheet] = pd.read_excel(uploaded_file, sheet_name=sheet, header=None)
 
-        for sheet_name in sheet_names:
-            df_sheet = excel.parse(sheet_name, header=None)
+        fund_choice = st.sidebar.selectbox("Select Fund", list(fund_ranges.keys()))
+        show_datasets = st.sidebar.checkbox("Show dataset preview per sheet")
 
-            # Return on Investment
-            roi_rows = {
-                "Money Market": 57,
-                "Government Securities": 59,
-                "Corporate Notes and Bonds": 60,
-                "Equities": 61,
-                "Overall ROI": 62,
-            }
-            capital_market_row_roi = 58
+        fund_data = {}
+        for sheet in sheet_names:
+            df_raw = raw_sheets[sheet]
+            start_col, end_col = fund_ranges[fund_choice]
+            format_roi = True if sheet == "ROI" and show_datasets else False
+            fund_data[sheet] = extract_fund_data(df_raw, start_col, end_col, sheet_name=sheet, format_roi=format_roi)
 
-            # Investment Level
-            investment_rows = {
-                "Money Market": 9,
-                "Government Securities": 7,
-                "Corporate Notes and Bonds": 8,
-                "Equities": 12,
-                "Total Investments": 13,
-            }
-            capital_market_row_inv = 5
+        common_dates = set(fund_data["ROI"]["Date"]) & set(fund_data["INVESTMENT_LEVEL"]["Date"]) & set(fund_data["INVESTMENT_INCOME"]["Date"])
+        sorted_dates = sorted(list(common_dates))
+        date_choice = st.sidebar.selectbox("Select Date", sorted_dates)
 
-            # Investment Income
-            income_rows = {
-                "Money Market": 29,
-                "Government Securities": 27,
-                "Corporate Notes and Bonds": 28,
-                "Equities": 32,
-                "Total Investment Income": 33,
-            }
-            capital_market_row_inc = 25
+        def get_row(df):
+            row = df[df["Date"] == date_choice]
+            return row.iloc[0] if not row.empty else pd.Series()
 
-            df_roi = extract_section(df_sheet, 55, roi_rows, capital_market_row=capital_market_row_roi, percent=True)
-            df_inv = extract_section(df_sheet, 4, investment_rows, capital_market_row=capital_market_row_inv, percent=False)
-            df_inc = extract_section(df_sheet, 24, income_rows, capital_market_row=capital_market_row_inc, percent=False)
+        level_row = get_row(fund_data["INVESTMENT_LEVEL"])
+        income_row = get_row(fund_data["INVESTMENT_INCOME"])
 
-            all_data[sheet_name] = {
-                "Return on Investment": df_roi,
-                "Investment Level": df_inv,
-                "Investment Income": df_inc,
-            }
+        # Extract unformatted ROI dataset for report values
+        df_raw_roi = extract_fund_data(raw_sheets["ROI"], *fund_ranges[fund_choice], sheet_name="ROI", format_roi=False)
+        roi_row = get_row(df_raw_roi)
 
-            all_dates.update(df_roi.index.tolist())
-            all_dates.update(df_inv.index.tolist())
-            all_dates.update(df_inc.index.tolist())
+        report = pd.DataFrame(columns=["Asset", "Investment Level", "% Distribution", "Investment Income", "ROI"])
 
-        sorted_dates = sorted(all_dates, reverse=True)
-        default_date = "2024-12-31" if "2024-12-31" in sorted_dates else sorted_dates[0]
-        selected_date = st.sidebar.selectbox(
-            "Select Date (applies to all sheets and sections)",
-            options=sorted_dates,
-            index=sorted_dates.index(default_date)
-        )
+        try:
+            total_level = sum(pd.to_numeric(level_row.get(asset, 0), errors='coerce') for asset in asset_order if asset != "Capital Market")
+            total_income = sum(pd.to_numeric(income_row.get(asset, 0), errors='coerce') for asset in asset_order if asset != "Capital Market")
 
-        for sheet_name, sections in all_data.items():
-            st.subheader(f"{sheet_name} – Data for {selected_date}")
-            for section_title, df in sections.items():
-                st.markdown(f"**{section_title}**")
-                if selected_date in df.index:
-                    filtered = df.loc[[selected_date]]
-                    if section_title == "Return on Investment":
-                        st.dataframe(filtered.style.format("{:.3f}%"))
-                    else:
-                        st.dataframe(filtered.style.format("{:,.2f}"))
-                else:
-                    st.info(f"No data available for {selected_date} in {section_title}")
+            for asset in asset_order:
+                inv_level = pd.to_numeric(level_row.get(asset, 0), errors='coerce')
+                inv_income = pd.to_numeric(income_row.get(asset, 0), errors='coerce')
+                roi_val = pd.to_numeric(roi_row.get(asset, None), errors='coerce')
+                roi_value = f"{roi_val * 100:.2f}%" if pd.notnull(roi_val) else ""
+                dist_pct = (inv_level / total_level * 100) if total_level else 0
+
+                report = pd.concat([report, pd.DataFrame([{
+                    "Asset": asset,
+                    "Investment Level": f"{inv_level:,.2f}",
+                    "% Distribution": f"{dist_pct:.2f}%",
+                    "Investment Income": f"{inv_income:,.2f}",
+                    "ROI": roi_value
+                }])], ignore_index=True)
+
+            # Safely find the column for 'Overall ROI' regardless of formatting
+            overall_roi_val = None
+            for col in roi_row.index:
+                if str(col).strip().lower() == "overall roi":
+                    overall_roi_val = pd.to_numeric(roi_row[col], errors='coerce')
+                    break
+            overall_roi = f"{overall_roi_val * 100:.2f}%" if pd.notnull(overall_roi_val) else ""
+
+            report = pd.concat([report, pd.DataFrame([{
+                "Asset": "Total",
+                "Investment Level": f"{total_level:,.2f}",
+                "% Distribution": "100.00%",
+                "Investment Income": f"{total_income:,.2f}",
+                "ROI": overall_roi
+            }])], ignore_index=True)
+
+            st.subheader(f"{fund_choice} Fund Report for {date_choice}")
+            st.dataframe(report, use_container_width=True)
+
+            if show_datasets:
+                st.markdown("---")
+                st.subheader("📂 Dataset Preview")
+                for sheet in sheet_names:
+                    st.markdown(f"**{sheet} - {fund_choice}**")
+                    st.dataframe(fund_data[sheet], use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Error generating report: {e}")
+    else:
+        st.warning("📥 Please upload an Excel file to begin.")
