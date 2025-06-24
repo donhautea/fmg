@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def show_equity_monitor_page():
-    # Wide layout set in main_app.py via st.set_page_config(..., layout="wide")
     st.title("📊 Equity Database Monitoring")
     st.markdown("""
         <style>
@@ -15,11 +14,10 @@ def show_equity_monitor_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # Sidebar: Upload Excel file
+    # Sidebar for file upload and filters
     st.sidebar.header("Upload Excel File")
     uploaded_file = st.sidebar.file_uploader("Choose an Excel (.xlsx) file", type="xlsx")
 
-    # Fund-to-sheet mapping
     fund_sheet_map = {
         "SSS": ["SSS_FVTPL", "SSS_FVTOCI"],
         "EC": ["EC_FVTPL", "EC_FVTOCI"],
@@ -28,155 +26,124 @@ def show_equity_monitor_page():
     }
     all_funds = list(fund_sheet_map.keys())
 
-    if uploaded_file:
-        all_sheets = pd.read_excel(uploaded_file, sheet_name=None)
-
-        st.sidebar.header("Fund Selection")
-        selected_fund = st.sidebar.radio("Select Fund to Analyze:", all_funds + ["All Funds"])
-
-        st.sidebar.header("Coverage")
-        date_from = st.sidebar.date_input("Date From")
-        date_to = st.sidebar.date_input("Date To")
-
-        st.sidebar.header("Data Analysis Menu")
-        analysis_type = st.sidebar.radio(
-            "Select Summary Type:",
-            [
-                "Summary by Fund and Buy/Sell with Total",
-                "Summary by Classification",
-                "Summary by Buy/Sell",
-                "Summary by Stock",
-                "Summary by Broker",
-                "Total Value by Buy/Sell",
-                "Total Value by Stock",
-                "Summary by Date by Fund by Buy/Sell by Value",
-                "Summary by Stock: Weighted Average Buying and Selling"
-            ]
-        )
-
-        st.sidebar.header("Chart Menu")
-        chart_fund_buysell = st.sidebar.checkbox("Bar Chart by Fund: Total Value by Buy/Sell")
-        chart_stock_buysell = st.sidebar.checkbox("Bar Chart by Fund: Buy/Sell by Stock")
-        chart_broker_buysell = st.sidebar.checkbox("Bar Chart by Broker: Buy/Sell by Value")
-
-        dfs = []
-        funds_to_process = all_funds if selected_fund == "All Funds" else [selected_fund]
-
-        for fund in funds_to_process:
-            for sheet in fund_sheet_map[fund]:
-                if sheet in all_sheets:
-                    df = all_sheets[sheet]
-                    required_cols = {"Date", "Classification", "Stock", "Buy_Sell", "Broker", "Volume", "Price"}
-                    if required_cols.issubset(df.columns):
-                        df["Date"] = pd.to_datetime(df["Date"]).dt.date
-                        df = df[(df["Date"] >= date_from) & (df["Date"] <= date_to)]
-                        df["Value"] = df["Volume"] * df["Price"]
-                        df["Fund"] = fund
-                        df["Sheet"] = sheet
-                        dfs.append(df)
-                    else:
-                        st.warning(f"Sheet '{sheet}' is missing required columns.")
-
-        if dfs:
-            full_df = pd.concat(dfs, ignore_index=True)
-            st.subheader(f"📁 Data for: {selected_fund}")
-            styled_full = full_df.style.format({
-                "Volume": "{:,.0f}",
-                "Value": "₱{:,.2f}"
-            })
-            st.write(styled_full)
-
-            # Summaries
-            def show_summary(df, group_cols, agg_label):
-                summary = df.groupby(group_cols)["Value"].sum().reset_index()
-                summary = summary.rename(columns={"Value": agg_label})
-                styled = summary.style.format({agg_label: "₱{:,.2f}"})
-                st.write(styled)
-
-            if analysis_type == "Summary by Fund and Buy/Sell with Total":
-                show_summary(full_df, ["Fund", "Buy_Sell"], "Total Value")
-            elif analysis_type == "Summary by Classification":
-                show_summary(full_df, ["Classification"], "Total Value")
-            elif analysis_type == "Summary by Buy/Sell":
-                show_summary(full_df, ["Buy_Sell"], "Total Value")
-            elif analysis_type == "Summary by Stock":
-                grouped = full_df.groupby("Stock").agg(
-                    Total_Volume=("Volume", "sum"),
-                    Total_Value=("Value", "sum")
-                ).reset_index()
-                grouped["Avg_Price"] = grouped["Total_Value"] / grouped["Total_Volume"]
-                styled = grouped.style.format({
-                    "Total_Volume": "{:,.0f}",
-                    "Avg_Price": "₱{:,.2f}",
-                    "Total_Value": "₱{:,.2f}"
-                })
-                st.write(styled)
-            elif analysis_type == "Summary by Broker":
-                show_summary(full_df, ["Broker"], "Total Value")
-            elif analysis_type == "Total Value by Buy/Sell":
-                show_summary(full_df, ["Buy_Sell"], "Total Value")
-            elif analysis_type == "Total Value by Stock":
-                summary = full_df.groupby(["Buy_Sell", "Stock"]) ["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
-                styled = summary.style.format({"Total Value": "₱{:,.2f}"})
-                st.write(styled)
-            elif analysis_type == "Summary by Date by Fund by Buy/Sell by Value":
-                summary = full_df.groupby(["Date", "Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
-                styled = summary.style.format({"Value": "₱{:,.2f}"})
-                st.write(styled)
-            elif analysis_type == "Summary by Stock: Weighted Average Buying and Selling":
-                grouped = full_df.groupby(["Stock", "Buy_Sell"]).agg(
-                    Total_Value=("Value", "sum"),
-                    Total_Shares=("Volume", "sum")
-                ).reset_index()
-                grouped["Weighted_Avg_Price"] = grouped["Total_Value"] / grouped["Total_Shares"]
-                pivot = grouped.pivot(index="Stock", columns="Buy_Sell", values="Weighted_Avg_Price").reset_index()
-                pivot = pivot.rename(columns={"B": "Avg_Buying_Price", "S": "Avg_Selling_Price"})
-                styled = pivot.style.format({
-                    "Avg_Buying_Price": "₱{:,.2f}",
-                    "Avg_Selling_Price": "₱{:,.2f}"
-                })
-                st.write(styled)
-
-            def format_label(val):
-                return f"₱{val:.1f} M" if val != 0 else ""
-
-            if chart_fund_buysell:
-                st.subheader("📊 Bar Chart: Total Value by Buy/Sell per Fund")
-                chart_data = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
-                ax = chart_data.plot(kind="bar", figsize=(10, 5), title="Total Value by Buy/Sell per Fund (in Millions)")
-                ax.set_ylabel("Value (₱ Millions)")
-                for container in ax.containers:
-                    labels = [format_label(v) for v in container.datavalues]
-                    ax.bar_label(container, labels=labels, fontsize=8)
-                st.pyplot(plt)
-
-            if chart_stock_buysell:
-                st.subheader("📊 Bar Chart: Buy/Sell by Stock")
-                all_stocks = sorted(full_df["Stock"].dropna().unique().tolist())
-                selected_stocks = st.multiselect("Select Stocks to Display:", options=all_stocks, default=all_stocks)
-
-                if selected_stocks:
-                    filtered_stock_df = full_df[full_df["Stock"].isin(selected_stocks)]
-                    chart_data = filtered_stock_df.groupby(["Stock", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
-                    ax = chart_data.plot(kind="bar", figsize=(12, 6), title="Buy/Sell by Selected Stocks (in Millions)")
-                    ax.set_ylabel("Value (₱ Millions)")
-                    for container in ax.containers:
-                        labels = [format_label(v) for v in container.datavalues]
-                        ax.bar_label(container, labels=labels, fontsize=8)
-                    st.pyplot(plt)
-                else:
-                    st.warning("Please select at least one stock to display the chart.")
-
-            if chart_broker_buysell:
-                st.subheader("📊 Bar Chart: Buy/Sell by Broker")
-                chart_data = full_df.groupby(["Broker", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
-                ax = chart_data.plot(kind="bar", figsize=(12, 6), title="Buy/Sell by Broker (in Millions)")
-                ax.set_ylabel("Value (₱ Millions)")
-                for container in ax.containers:
-                    labels = [format_label(v) for v in container.datavalues]
-                    ax.bar_label(container, labels=labels, fontsize=8)
-                st.pyplot(plt)
-        else:
-            st.warning("No valid data loaded for the selected fund(s) and date range.")
-    else:
+    if not uploaded_file:
         st.info("📥 Please upload an Excel file with the required sheet structure to begin.")
+        return
+
+    sheets = pd.read_excel(uploaded_file, sheet_name=None)
+    selected_fund = st.sidebar.radio("Select Fund to Analyze:", all_funds + ["All Funds"])
+    date_from = st.sidebar.date_input("Date From")
+    date_to = st.sidebar.date_input("Date To")
+    analysis_type = st.sidebar.radio(
+        "Select Summary Type:",
+        [
+            "Summary by Fund and Buy/Sell with Total",
+            "Summary by Classification",
+            "Summary by Buy/Sell",
+            "Summary by Stock",
+            "Summary by Broker",
+            "Total Value by Buy/Sell",
+            "Total Value by Stock",
+            "Summary by Date by Fund by Buy/Sell by Value",
+            "Summary by Stock: Weighted Average Buying and Selling"
+        ]
+    )
+    chart_fund = st.sidebar.checkbox("Bar Chart by Fund: Total Value by Buy/Sell")
+    chart_stock = st.sidebar.checkbox("Bar Chart by Fund: Buy/Sell by Stock")
+    chart_broker = st.sidebar.checkbox("Bar Chart by Broker: Buy/Sell by Value")
+
+    dfs = []
+    funds = all_funds if selected_fund == "All Funds" else [selected_fund]
+    required = {"Date", "Classification", "Stock", "Buy_Sell", "Broker", "Volume", "Price"}
+
+    for fund in funds:
+        for sheet in fund_sheet_map[fund]:
+            df = sheets.get(sheet)
+            if df is None:
+                continue
+            if not required.issubset(df.columns):
+                st.warning(f"Sheet '{sheet}' missing required columns.")
+                continue
+            df = df.copy()
+            df["Date"] = pd.to_datetime(df["Date"]).dt.date
+            df = df[df["Date"].between(date_from, date_to)]
+            df["Value"] = df["Volume"] * df["Price"]
+            df["Fund"] = fund
+            dfs.append(df)
+
+    if not dfs:
+        st.warning("No valid data for the selected fund(s) and date range.")
+        return
+
+    full_df = pd.concat(dfs, ignore_index=True)
+
+    def format_df(df, volume_col="Volume", value_col="Value"):
+        df = df.copy()
+        df[volume_col] = df[volume_col].apply(lambda x: f"{x:,.0f}")
+        df[value_col] = df[value_col].apply(lambda x: f"₱{x:,.2f}")
+        return df
+
+    st.subheader(f"📁 Data for: {selected_fund}")
+    st.dataframe(format_df(full_df))
+
+    # Summaries
+    if analysis_type == "Summary by Fund and Buy/Sell with Total":
+        summary = full_df.groupby(["Fund", "Buy_Sell"]) {"Value": "sum"}.reset_index()
+    elif analysis_type == "Summary by Classification":
+        summary = full_df.groupby("Classification") {"Value": "sum"}.reset_index()
+    elif analysis_type == "Summary by Buy/Sell":
+        summary = full_df.groupby("Buy_Sell") {"Value": "sum"}.reset_index()
+    elif analysis_type == "Summary by Stock":
+        summary = full_df.groupby("Stock").agg(Total_Volume=("Volume", "sum"), Total_Value=("Value", "sum")).reset_index()
+    elif analysis_type == "Summary by Broker":
+        summary = full_df.groupby("Broker") {"Value": "sum"}.reset_index()
+    elif analysis_type == "Total Value by Buy/Sell":
+        summary = full_df.groupby("Buy_Sell") {"Value": "sum"}.rename(columns={"Value": "Total Value"}).reset_index()
+    elif analysis_type == "Total Value by Stock":
+        summary = full_df.groupby(["Buy_Sell", "Stock"]) {"Value": "sum"}.rename(columns={"Value": "Total Value"}).reset_index()
+    elif analysis_type == "Summary by Date by Fund by Buy/Sell by Value":
+        summary = full_df.groupby(["Date", "Fund", "Buy_Sell"]) {"Value": "sum"}.reset_index()
+    else:  # Weighted average
+        grp = full_df.groupby(["Stock", "Buy_Sell"]).agg(Total_Value=("Value", "sum"), Total_Shares=("Volume", "sum")).reset_index()
+        grp["Weighted_Avg"] = grp["Total_Value"] / grp["Total_Shares"]
+        summary = grp.pivot(index="Stock", columns="Buy_Sell", values="Weighted_Avg").reset_index()
+        summary = summary.rename(columns={"B": "Avg_Buy", "S": "Avg_Sell"})
+
+    st.subheader("📊 Summary")
+    st.dataframe(format_df(summary, volume_col=summary.columns[-1] if "Avg" in summary.columns[-1] else "", value_col=summary.columns[-1]))
+
+    def fmt_m(val):
+        return f"₱{val:.1f} M" if val != 0 else ""
+
+    if chart_fund:
+        st.subheader("Bar Chart: Total Value by Fund & Buy/Sell")
+        cd = full_df.groupby(["Fund", "Buy_Sell"])()["Value"].sum().unstack().fillna(0) / 1e6
+        ax = cd.plot(kind="bar", figsize=(10,5))
+        ax.set_ylabel("₱ Millions")
+        for cont in ax.containers:
+            ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+        st.pyplot(plt)
+
+    if chart_stock:
+        st.subheader("Bar Chart: Buy/Sell by Stock")
+        stocks = sorted(full_df["Stock"].unique())
+        sel = st.multiselect("Stocks:", stocks, default=stocks)
+        if sel:
+            fd = full_df[full_df["Stock"].isin(sel)]
+            cd = fd.groupby(["Stock", "Buy_Sell"])()["Value"].sum().unstack().fillna(0)/1e6
+            ax = cd.plot(kind="bar", figsize=(12,6))
+            ax.set_ylabel("₱ Millions")
+            for cont in ax.containers:
+                ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+            st.pyplot(plt)
+        else:
+            st.warning("Select at least one stock.")
+
+    if chart_broker:
+        st.subheader("Bar Chart: Buy/Sell by Broker")
+        cd = full_df.groupby(["Broker", "Buy_Sell"])()["Value"].sum().unstack().fillna(0)/1e6
+        ax = cd.plot(kind="bar", figsize=(12,6))
+        ax.set_ylabel("₱ Millions")
+        for cont in ax.containers:
+            ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+        st.pyplot(plt)
