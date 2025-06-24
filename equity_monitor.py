@@ -80,17 +80,21 @@ def show_equity_monitor_page():
         if dfs:
             full_df = pd.concat(dfs, ignore_index=True)
             st.subheader(f"📁 Data for: {selected_fund}")
-            st.dataframe(full_df)
+            st.dataframe(full_df.style.format({
+                "Volume": "{:,.0f}",
+                "Value": "₱{:,.2f}"
+            }))
 
+            # Generate summaries
             if analysis_type == "Summary by Fund and Buy/Sell with Total":
-                summary = full_df.groupby(["Fund", "Buy_Sell"])["Value"].sum().reset_index()
-                st.dataframe(summary)
+                summary = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
+                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
             elif analysis_type == "Summary by Classification":
                 summary = full_df.groupby("Classification")["Value"].sum().reset_index()
-                st.dataframe(summary)
+                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
             elif analysis_type == "Summary by Buy/Sell":
                 summary = full_df.groupby("Buy_Sell")["Value"].sum().reset_index()
-                st.dataframe(summary)
+                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
             elif analysis_type == "Summary by Stock":
                 grouped = full_df.groupby("Stock").agg(
                     Total_Volume=("Volume", "sum"),
@@ -105,16 +109,16 @@ def show_equity_monitor_page():
                 }))
             elif analysis_type == "Summary by Broker":
                 summary = full_df.groupby("Broker")["Value"].sum().reset_index()
-                st.dataframe(summary)
+                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
             elif analysis_type == "Total Value by Buy/Sell":
                 summary = full_df.groupby("Buy_Sell")["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
-                st.dataframe(summary)
+                st.dataframe(summary.style.format({"Total Value": "₱{:,.2f}"}))
             elif analysis_type == "Total Value by Stock":
-                summary = full_df.groupby(["Buy_Sell", "Stock"])["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
-                st.dataframe(summary)
+                summary = full_df.groupby(["Buy_Sell", "Stock"]) ["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
+                st.dataframe(summary.style.format({"Total Value": "₱{:,.2f}"}))
             elif analysis_type == "Summary by Date by Fund by Buy/Sell by Value":
-                summary = full_df.groupby(["Date", "Fund", "Buy_Sell"])["Value"].sum().reset_index()
-                st.dataframe(summary)
+                summary = full_df.groupby(["Date", "Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
+                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
             elif analysis_type == "Summary by Stock: Weighted Average Buying and Selling":
                 grouped = full_df.groupby(["Stock", "Buy_Sell"]).agg(
                     Total_Value=("Value", "sum"),
@@ -131,9 +135,10 @@ def show_equity_monitor_page():
             def format_label(val):
                 return f"₱{val:.1f} M" if val != 0 else ""
 
+            # Chart rendering retains data in millions; formatting in labels
             if chart_fund_buysell:
                 st.subheader("📊 Bar Chart: Total Value by Buy/Sell per Fund")
-                chart_data = full_df.groupby(["Fund", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1_000_000
+                chart_data = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
                 ax = chart_data.plot(kind="bar", figsize=(10, 5), title="Total Value by Buy/Sell per Fund (in Millions)")
                 ax.set_ylabel("Value (₱ Millions)")
                 for container in ax.containers:
@@ -148,7 +153,7 @@ def show_equity_monitor_page():
 
                 if selected_stocks:
                     filtered_stock_df = full_df[full_df["Stock"].isin(selected_stocks)]
-                    chart_data = filtered_stock_df.groupby(["Stock", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1_000_000
+                    chart_data = filtered_stock_df.groupby(["Stock", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
                     ax = chart_data.plot(kind="bar", figsize=(12, 6), title="Buy/Sell by Selected Stocks (in Millions)")
                     ax.set_ylabel("Value (₱ Millions)")
                     for container in ax.containers:
@@ -160,7 +165,7 @@ def show_equity_monitor_page():
 
             if chart_broker_buysell:
                 st.subheader("📊 Bar Chart: Buy/Sell by Broker")
-                chart_data = full_df.groupby(["Broker", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1_000_000
+                chart_data = full_df.groupby(["Broker", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
                 ax = chart_data.plot(kind="bar", figsize=(12, 6), title="Buy/Sell by Broker (in Millions)")
                 ax.set_ylabel("Value (₱ Millions)")
                 for container in ax.containers:
