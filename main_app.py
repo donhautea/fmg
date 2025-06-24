@@ -1,4 +1,3 @@
-```python
 # main_app.py
 
 import streamlit as st
@@ -13,7 +12,11 @@ from duration_convexity import show_duration_convexity_page
 from techanalysis import show_techanalysis_page
 
 def main():
-    st.set_page_config(page_title="Investment Analysis App", layout="wide")
+    # Configure page once, before any Streamlit commands
+    st.set_page_config(
+        page_title="Investment Analysis App",
+        layout="wide"
+    )
     st.title("Investment Portfolio Analysis")
 
     page = st.sidebar.selectbox(
