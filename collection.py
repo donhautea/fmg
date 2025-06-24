@@ -30,7 +30,7 @@ def extract_pdf_with_pdfplumber(file_path, plan_type):
 
                 # Calculate header rows and apply an offset of -1 (i.e., drop one fewer row)
                 header_rows = 3 if plan_type == "MPF" else 4
-                df = df.iloc[header_rows - 1:].reset_index(drop=True)
+                df = df.iloc[header_rows - 2:].reset_index(drop=True)
 
                 col_count = df.shape[1]
 
