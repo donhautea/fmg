@@ -1,4 +1,6 @@
+```python
 # main_app.py
+
 import streamlit as st
 
 from collection import show_collection_page
@@ -8,7 +10,7 @@ from fixed_income import show_fixed_income_page
 from portfolio_roi import show_portfolio_roi_page
 from fi_analysis import show_fi_analysis
 from duration_convexity import show_duration_convexity_page
-
+from techanalysis import show_techanalysis_page
 
 def main():
     st.set_page_config(page_title="Investment Analysis App", layout="wide")
@@ -23,7 +25,8 @@ def main():
             "Fixed Income",
             "Portfolio / ROI",
             "Fixed Income Statistical Data",
-            "Duration, Convexity vs Rate Cuts"
+            "Duration, Convexity vs Rate Cuts",
+            "Technical Analysis"
         ]
     )
 
@@ -48,6 +51,8 @@ def main():
     elif page == "Duration, Convexity vs Rate Cuts":
         show_duration_convexity_page()
 
+    elif page == "Technical Analysis":
+        show_techanalysis_page()
 
 if __name__ == "__main__":
     main()
