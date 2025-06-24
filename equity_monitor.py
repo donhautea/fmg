@@ -80,62 +80,66 @@ def show_equity_monitor_page():
         if dfs:
             full_df = pd.concat(dfs, ignore_index=True)
             st.subheader(f"📁 Data for: {selected_fund}")
-            st.dataframe(full_df.style.format({
+            styled_full = full_df.style.format({
                 "Volume": "{:,.0f}",
                 "Value": "₱{:,.2f}"
-            }))
+            })
+            st.write(styled_full)
 
-            # Generate summaries
+            # Summaries
+            def show_summary(df, group_cols, agg_label):
+                summary = df.groupby(group_cols)["Value"].sum().reset_index()
+                summary = summary.rename(columns={"Value": agg_label})
+                styled = summary.style.format({agg_label: "₱{:,.2f}"})
+                st.write(styled)
+
             if analysis_type == "Summary by Fund and Buy/Sell with Total":
-                summary = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
-                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
+                show_summary(full_df, ["Fund", "Buy_Sell"], "Total Value")
             elif analysis_type == "Summary by Classification":
-                summary = full_df.groupby("Classification")["Value"].sum().reset_index()
-                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
+                show_summary(full_df, ["Classification"], "Total Value")
             elif analysis_type == "Summary by Buy/Sell":
-                summary = full_df.groupby("Buy_Sell")["Value"].sum().reset_index()
-                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
+                show_summary(full_df, ["Buy_Sell"], "Total Value")
             elif analysis_type == "Summary by Stock":
                 grouped = full_df.groupby("Stock").agg(
                     Total_Volume=("Volume", "sum"),
                     Total_Value=("Value", "sum")
                 ).reset_index()
                 grouped["Avg_Price"] = grouped["Total_Value"] / grouped["Total_Volume"]
-                summary = grouped[["Stock", "Total_Volume", "Avg_Price", "Total_Value"]]
-                st.dataframe(summary.style.format({
+                styled = grouped.style.format({
                     "Total_Volume": "{:,.0f}",
                     "Avg_Price": "₱{:,.2f}",
                     "Total_Value": "₱{:,.2f}"
-                }))
+                })
+                st.write(styled)
             elif analysis_type == "Summary by Broker":
-                summary = full_df.groupby("Broker")["Value"].sum().reset_index()
-                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
+                show_summary(full_df, ["Broker"], "Total Value")
             elif analysis_type == "Total Value by Buy/Sell":
-                summary = full_df.groupby("Buy_Sell")["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
-                st.dataframe(summary.style.format({"Total Value": "₱{:,.2f}"}))
+                show_summary(full_df, ["Buy_Sell"], "Total Value")
             elif analysis_type == "Total Value by Stock":
                 summary = full_df.groupby(["Buy_Sell", "Stock"]) ["Value"].sum().reset_index().rename(columns={"Value": "Total Value"})
-                st.dataframe(summary.style.format({"Total Value": "₱{:,.2f}"}))
+                styled = summary.style.format({"Total Value": "₱{:,.2f}"})
+                st.write(styled)
             elif analysis_type == "Summary by Date by Fund by Buy/Sell by Value":
                 summary = full_df.groupby(["Date", "Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
-                st.dataframe(summary.style.format({"Value": "₱{:,.2f}"}))
+                styled = summary.style.format({"Value": "₱{:,.2f}"})
+                st.write(styled)
             elif analysis_type == "Summary by Stock: Weighted Average Buying and Selling":
                 grouped = full_df.groupby(["Stock", "Buy_Sell"]).agg(
                     Total_Value=("Value", "sum"),
                     Total_Shares=("Volume", "sum")
                 ).reset_index()
                 grouped["Weighted_Avg_Price"] = grouped["Total_Value"] / grouped["Total_Shares"]
-                summary = grouped.pivot(index="Stock", columns="Buy_Sell", values="Weighted_Avg_Price").reset_index()
-                summary = summary.rename(columns={"B": "Avg_Buying_Price", "S": "Avg_Selling_Price"})
-                st.dataframe(summary.style.format({
+                pivot = grouped.pivot(index="Stock", columns="Buy_Sell", values="Weighted_Avg_Price").reset_index()
+                pivot = pivot.rename(columns={"B": "Avg_Buying_Price", "S": "Avg_Selling_Price"})
+                styled = pivot.style.format({
                     "Avg_Buying_Price": "₱{:,.2f}",
                     "Avg_Selling_Price": "₱{:,.2f}"
-                }))
+                })
+                st.write(styled)
 
             def format_label(val):
                 return f"₱{val:.1f} M" if val != 0 else ""
 
-            # Chart rendering retains data in millions; formatting in labels
             if chart_fund_buysell:
                 st.subheader("📊 Bar Chart: Total Value by Buy/Sell per Fund")
                 chart_data = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1_000_000
