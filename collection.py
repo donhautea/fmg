@@ -4,8 +4,6 @@ import os
 import tempfile
 import pdfplumber
 
-import pdfplumber
-import pandas as pd
 
 def extract_pdf_with_pdfplumber(file_path, plan_type):
     """
@@ -30,8 +28,9 @@ def extract_pdf_with_pdfplumber(file_path, plan_type):
                 if df.empty or df.shape[0] < 3:
                     continue
 
-                # Drop first 3 header rows as originally done
-                df = df.iloc[3:].reset_index(drop=True)
+                # Drop header rows: 3 for MPF, 4 for NVPF to account for extra row
+                header_rows = 3 if plan_type == "MPF" else 4
+                df = df.iloc[header_rows:].reset_index(drop=True)
 
                 col_count = df.shape[1]
 
