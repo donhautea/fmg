@@ -142,10 +142,11 @@ def show_collection_page():
                 st.sidebar.error("Default dataset not found.")
 
     if result_df is not None:
+        # Convert and format dates
         if "Payment_Date" in result_df.columns:
-            result_df["Payment_Date"] = pd.to_datetime(result_df["Payment_Date"], errors="coerce")
+            result_df["Payment_Date"] = pd.to_datetime(result_df["Payment_Date"], errors="coerce").dt.strftime("%Y-%m-%d")
         if "Posting_Date" in result_df.columns:
-            result_df["Posting_Date"] = pd.to_datetime(result_df["Posting_Date"], errors="coerce")
+            result_df["Posting_Date"] = pd.to_datetime(result_df["Posting_Date"], errors="coerce").dt.strftime("%Y-%m-%d")
         result_df = result_df[result_df["Payment_Date"].notna()]
 
         show_data = st.sidebar.radio("Display Data?", ("No", "Yes"))
@@ -168,17 +169,17 @@ def show_collection_page():
                 result_df["Total_Amount"] = result_df["Total_Amount"].abs()
 
         if "Month" not in result_df.columns and "Payment_Date" in result_df.columns:
-            result_df["Month"] = result_df["Payment_Date"].dt.to_period("M").dt.to_timestamp()
+            result_df["Month"] = pd.to_datetime(result_df["Payment_Date"]).dt.to_period("M").dt.to_timestamp()
 
         if "Total_Num" in result_df.columns and "Total_Amount" in result_df.columns:
-            monthly_totals = result_df.groupby("Month")[["Total_Num", "Total_Amount"]].sum().reset_index()
+            monthly_totals = result_df.groupby("Month")[['Total_Num', 'Total_Amount']].sum().reset_index()
             monthly_totals = monthly_totals.sort_values("Month").reset_index(drop=True)
-            monthly_totals["Month_str"] = monthly_totals["Month"].dt.strftime("%Y-%m")
-            for col in ["Total_Num", "Total_Amount"]:
-                monthly_totals[col] = monthly_totals[col].round(0).astype("Int64")
+            monthly_totals['Month_str'] = monthly_totals['Month'].dt.strftime("%Y-%m")
+            for col in ['Total_Num', 'Total_Amount']:
+                monthly_totals[col] = monthly_totals[col].round(0).astype('Int64')
             display_monthly = monthly_totals.copy()
-            display_monthly["Total_Num"] = display_monthly["Total_Num"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "")
-            display_monthly["Total_Amount"] = display_monthly["Total_Amount"].apply(lambda x: f"{x:,}" if pd.notnull(x) else "")
+            display_monthly['Total_Num'] = display_monthly['Total_Num'].apply(lambda x: f"{x:,}" if pd.notnull(x) else "")
+            display_monthly['Total_Amount'] = display_monthly['Total_Amount'].apply(lambda x: f"{x:,}" if pd.notnull(x) else "")
         else:
             monthly_totals = None
             display_monthly = None
@@ -186,7 +187,7 @@ def show_collection_page():
         show_monthly = st.sidebar.radio("Display Monthly Totals?", ("No", "Yes"))
         if show_monthly == "Yes" and display_monthly is not None:
             st.title("Monthly Totals")
-            st.table(display_monthly[["Month_str", "Total_Num", "Total_Amount"]].rename(columns={"Month_str": "Month"}))
+            st.table(display_monthly[['Month_str', 'Total_Num', 'Total_Amount']].rename(columns={'Month_str': 'Month'}))
 
         overall_nums = int(result_df["Total_Num"].sum().round(0)) if "Total_Num" in result_df.columns else None
         overall_amount = int(result_df["Total_Amount"].sum().round(0)) if "Total_Amount" in result_df.columns else None
@@ -195,7 +196,7 @@ def show_collection_page():
         number_cols = [col for col in ["ER_Num", "EE_Num", "SE_Num", "VM_Num", "OFW_Num", "NWS_Num", "Total_Num"] if col in result_df.columns]
         if (amount_cols + number_cols) and ("Month" in result_df.columns):
             monthly_series = result_df.groupby("Month")[amount_cols + number_cols].sum().reset_index()
-            monthly_series["Month_str"] = monthly_series["Month"].dt.strftime("%Y-%m")
+            monthly_series['Month_str'] = monthly_series['Month'].dt.strftime("%Y-%m")
         else:
             monthly_series = None
 
@@ -223,22 +224,20 @@ def show_collection_page():
 
         elif report_type == "Statistics" and (monthly_totals is not None):
             st.title("Yearly and Monthly Statistics")
-            monthly_totals["Year"] = pd.to_datetime(monthly_totals["Month_str"]).dt.year
-            yearly_avg = monthly_totals.groupby("Year")[["Total_Num", "Total_Amount"]].mean().reset_index()
-            yearly_avg["Avg_Num"] = yearly_avg["Total_Num"].apply(lambda x: f"{x:,.2f}")
-            yearly_avg["Avg_Amount"] = yearly_avg["Total_Amount"].apply(lambda x: f"{x:,.2f}")
-            yearly_avg_df = yearly_avg[["Year", "Avg_Num", "Avg_Amount"]]
+            monthly_totals['Year'] = pd.to_datetime(monthly_totals['Month_str']).dt.year
+            yearly_avg = monthly_totals.groupby('Year')[['Total_Num', 'Total_Amount']].mean().reset_index()
+            yearly_avg['Avg_Num'] = yearly_avg['Total_Num'].apply(lambda x: f"{x:,.2f}")
+            yearly_avg['Avg_Amount'] = yearly_avg['Total_Amount'].apply(lambda x: f"{x:,.2f}")
+            yearly_avg_df = yearly_avg[['Year', 'Avg_Num', 'Avg_Amount']]
 
-            min_num = monthly_totals["Total_Num"].min()
-            max_num = monthly_totals["Total_Num"].max()
-            min_amt = monthly_totals["Total_Amount"].min()
-            max_amt = monthly_totals["Total_Amount"].max()
+            min_num = monthly_totals['Total_Num'].min()
+            max_num = monthly_totals['Total_Num'].max()
+            min_amt = monthly_totals['Total_Amount'].min()
+            max_amt = monthly_totals['Total_Amount'].max()
             min_max_df = pd.DataFrame({
-                "Metric": ["Min_Num", "Max_Num", "Min_Amount", "Max_Amount"],
-                "Value": [
-                    f"{int(min_num):,}", f"{int(max_num):,}",
-                    f"{int(min_amt):,}", f"{int(max_amt):,}"
-                ]
+                'Metric': ['Min_Num', 'Max_Num', 'Min_Amount', 'Max_Amount'],
+                'Value': [
+                    f"{int(min_num):,}", f"{int(max_num):,}", f"{int(min_amt):,}", f"{int(max_amt):,}"                ]
             })
 
             st.subheader("Yearly Averages")
