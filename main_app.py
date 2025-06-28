@@ -1,5 +1,3 @@
-# main_app.py
-
 import streamlit as st
 
 from collection import show_collection_page
@@ -10,6 +8,8 @@ from portfolio_roi import show_portfolio_roi_page
 from fi_analysis import show_fi_analysis
 from duration_convexity import show_duration_convexity_page
 from techanalysis import show_techanalysis_page
+from demographics_app import show_demographics_page
+
 
 def main():
     # Configure page once, before any Streamlit commands
@@ -29,33 +29,30 @@ def main():
             "Portfolio / ROI",
             "Fixed Income Statistical Data",
             "Duration, Convexity vs Rate Cuts",
-            "Technical Analysis"
+            "Technical Analysis",
+            "Demographics Dashboard"
         ]
     )
 
     if page == "Collection Report":
         show_collection_page()
-
     elif page == "Equity Portfolio Analysis":
         show_equities_page()
-
     elif page == "Equity Portfolio Monitoring":
         show_equity_monitor_page()
-
     elif page == "Fixed Income":
         show_fixed_income_page()
-
     elif page == "Portfolio / ROI":
         show_portfolio_roi_page()
-
     elif page == "Fixed Income Statistical Data":
         show_fi_analysis()
-
     elif page == "Duration, Convexity vs Rate Cuts":
         show_duration_convexity_page()
-
     elif page == "Technical Analysis":
         show_techanalysis_page()
+    elif page == "Demographics Dashboard":
+        show_demographics_page()
+
 
 if __name__ == "__main__":
     main()
