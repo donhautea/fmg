@@ -2,7 +2,7 @@
 import streamlit as st
 
 from collection import show_collection_page
-from collection_compare import show_collection_compare_page
+from compare import show_collection_compare_page
 from equities import show_equities_page
 from equity_monitor import show_equity_monitor_page
 from fixed_income import show_fixed_income_page
