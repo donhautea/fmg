@@ -1,6 +1,8 @@
+# main_app.py
 import streamlit as st
 
 from collection import show_collection_page
+from collection_compare import show_collection_compare_page
 from equities import show_equities_page
 from equity_monitor import show_equity_monitor_page
 from fixed_income import show_fixed_income_page
@@ -23,6 +25,7 @@ def main():
         "Select Analysis Page:",
         [
             "Collection Report",
+            "Collection Compare",
             "Equity Portfolio Analysis",
             "Equity Portfolio Monitoring",
             "Fixed Income",
@@ -36,6 +39,8 @@ def main():
 
     if page == "Collection Report":
         show_collection_page()
+    elif page == "Collection Compare":
+        show_collection_compare_page()
     elif page == "Equity Portfolio Analysis":
         show_equities_page()
     elif page == "Equity Portfolio Monitoring":
