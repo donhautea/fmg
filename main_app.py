@@ -1,4 +1,3 @@
-# main_app.py
 import streamlit as st
 
 from collection import show_collection_page
@@ -11,10 +10,9 @@ from fi_analysis import show_fi_analysis
 from duration_convexity import show_duration_convexity_page
 from techanalysis import show_techanalysis_page
 from demographics_app import show_demographics_page
-
+from pdf_viewer import show_pdf_viewer_page  # ✅ NEW IMPORT
 
 def main():
-    # Configure page once, before any Streamlit commands
     st.set_page_config(
         page_title="Investment Analysis App",
         layout="wide"
@@ -33,7 +31,8 @@ def main():
             "Fixed Income Statistical Data",
             "Duration, Convexity vs Rate Cuts",
             "Technical Analysis",
-            "Demographics Dashboard"
+            "Demographics Dashboard",
+            "PDF Viewer"  # ✅ NEW MENU OPTION
         ]
     )
 
@@ -57,7 +56,8 @@ def main():
         show_techanalysis_page()
     elif page == "Demographics Dashboard":
         show_demographics_page()
-
+    elif page == "PDF Viewer":
+        show_pdf_viewer_page()  # ✅ CALL PDF VIEWER FUNCTION
 
 if __name__ == "__main__":
     main()
