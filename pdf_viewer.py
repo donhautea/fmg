@@ -1,13 +1,18 @@
 import streamlit as st
-import tempfile
 
 def show_pdf_viewer_page():
     st.subheader("📄 PDF Viewer")
 
     uploaded_file = st.sidebar.file_uploader("Upload a PDF file", type=["pdf"])
+
     if uploaded_file:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_path = tmp_file.name
-        st.markdown(f"[🔗 Open PDF in browser]({tmp_path})")
-        st.info("PDF will open in a new tab if supported.")
+        st.success(f"File uploaded: {uploaded_file.name}")
+        st.download_button(
+            label="📥 Download and open PDF",
+            data=uploaded_file.getvalue(),
+            file_name=uploaded_file.name,
+            mime="application/pdf"
+        )
+        st.info("Open the downloaded file using your PDF viewer.")
+    else:
+        st.info("👈 Upload a PDF to enable download.")
