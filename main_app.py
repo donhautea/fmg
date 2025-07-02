@@ -5,6 +5,7 @@ import streamlit as st
 from collection import show_collection_page
 from compare import show_collection_compare_page
 from equities import show_equities_page
+from equity_trans import show_equity_trans_page
 from equity_monitor import show_equity_monitor_page
 from fixed_income import show_fixed_income_page
 from portfolio_roi import show_portfolio_roi_page
@@ -13,7 +14,8 @@ from duration_convexity import show_duration_convexity_page
 from techanalysis import show_techanalysis_page
 from demographics_app import show_demographics_page
 from pdf_viewer import show_pdf_viewer_page
-from equity_trans import show_equity_trans_page  # ✅ NEW IMPORT
+from equity_market_prices import show_equity_market_prices_page  # ✅ NEW IMPORT
+
 
 def main():
     st.set_page_config(
@@ -28,7 +30,8 @@ def main():
             "Collection Report",
             "Collection Compare",
             "Equity Portfolio Analysis",
-            "Equity Transaction Update",       # ✅ NEW MENU OPTION
+            "Equity Transaction Update",
+            "Stock Data Viewer",          # ✅ NEW MENU OPTION
             "Equity Portfolio Monitoring",
             "Fixed Income",
             "Portfolio / ROI",
@@ -47,7 +50,9 @@ def main():
     elif page == "Equity Portfolio Analysis":
         show_equities_page()
     elif page == "Equity Transaction Update":
-        show_equity_trans_page()            # ✅ CALL NEW FUNCTION
+        show_equity_trans_page()
+    elif page == "Stock Data Viewer":
+        show_equity_market_prices_page()        # ✅ CALL NEW FUNCTION
     elif page == "Equity Portfolio Monitoring":
         show_equity_monitor_page()
     elif page == "Fixed Income":
@@ -64,6 +69,7 @@ def main():
         show_demographics_page()
     elif page == "PDF Viewer":
         show_pdf_viewer_page()
+
 
 if __name__ == "__main__":
     main()
