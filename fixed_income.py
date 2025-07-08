@@ -108,8 +108,12 @@ def show_fixed_income_page():
 
         st.subheader(f"🗓️ Maturities Report: {start_date.date()} to {end_date.date()} ({currency_display})")
         st.dataframe(df_maturity[display_cols].style.format({c: "{:,.2f}" for c in display_cols if c not in ["Maturity_Date","Remarks"]}))
-        st.markdown(f"### 🔢 Total Amount by Fund ({currency_display})")
-        st.dataframe(pd.DataFrame([total_dict]).style.format("{:,.2f}"))
+
+        # Show Maturities Total with Overall Sum
+        maturity_totals_df = pd.DataFrame([total_dict])
+        maturity_totals_df["Total_All_Funds"] = maturity_totals_df.sum(axis=1)
+        st.markdown(f"### 🔢 Maturities Total Amount by Fund ({currency_display})")
+        st.dataframe(maturity_totals_df.style.format("{:,.2f}"))
 
         ### Coupon Payment Report
         if selected_dataset.startswith("GS_Consolidated") or selected_dataset in ["CBN_Php", "CBN_USD"]:
@@ -160,8 +164,19 @@ def show_fixed_income_page():
                 pivot["Coupon_Payment_Date"] = pd.to_datetime(pivot["Coupon_Payment_Date"])
                 fmt = {c: "{:,.2f}" for c in pivot.columns if c.startswith("Coupon_Payment_")}
                 fmt["Coupon_Payment_Date"] = "{:%Y-%m-%d}"
+
                 st.subheader(f"💳 Coupon Payments Report: {start_date.date()} to {end_date.date()} ({currency_display})")
                 st.dataframe(pivot.style.format(fmt))
+
+                # Show Coupon Totals with Overall Sum
+                coupon_total_dict = {}
+                for fund in funds:
+                    col = f"Coupon_Payment_{fund}"
+                    coupon_total_dict[fund] = pivot[col].sum() if col in pivot.columns else 0
+                coupon_totals_df = pd.DataFrame([coupon_total_dict])
+                coupon_totals_df["Total_All_Funds"] = coupon_totals_df.sum(axis=1)
+                st.markdown(f"### 💳 Coupon Payments Total Amount by Fund ({currency_display})")
+                st.dataframe(coupon_totals_df.style.format("{:,.2f}"))
             else:
                 st.info("No coupon payment data available.")
         else:
@@ -197,8 +212,6 @@ def show_fixed_income_page():
                 filtered_funds = selected_funds
             grand_total = totals[filtered_funds].sum(axis=1).values[0]
             totals["Total_All_Funds"] = grand_total
-
-            currency_label = "PhP" if exchange_rate or selected_dataset.endswith("_Php") else "USD"
 
             st.markdown(f"### 💰 Total for Selected References and Funds ({currency_label})")
             st.dataframe(totals.style.format("{:,.2f}"))
