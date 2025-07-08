@@ -14,7 +14,6 @@ def show_equity_monitor_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # Sidebar: file upload and filters
     st.sidebar.header("Upload Excel File")
     uploaded_file = st.sidebar.file_uploader("Choose an Excel (.xlsx) file", type="xlsx")
     if not uploaded_file:
@@ -33,24 +32,15 @@ def show_equity_monitor_page():
     selected_fund = st.sidebar.radio("Select Fund to Analyze:", all_funds + ["All Funds"])
     date_from = st.sidebar.date_input("Date From")
     date_to = st.sidebar.date_input("Date To")
-    analysis_type = st.sidebar.radio(
-        "Select Summary Type:", [
-            "Summary by Fund and Buy/Sell with Total",
-            "Summary by Classification",
-            "Summary by Buy/Sell",
-            "Summary by Stock",
-            "Summary by Broker",
-            "Total Value by Buy/Sell",
-            "Total Value by Stock",
-            "Summary by Date by Fund by Buy/Sell by Value",
-            "Summary by Stock: Weighted Average Buying and Selling"
-        ]
-    )
+    show_custom_summary = st.sidebar.checkbox("Show Net Value Summary", value=True)
+
     chart_fund = st.sidebar.checkbox("Bar Chart by Fund: Total Value by Buy/Sell")
     chart_stock = st.sidebar.checkbox("Bar Chart by Fund: Buy/Sell by Stock")
     chart_broker = st.sidebar.checkbox("Bar Chart by Broker: Buy/Sell by Value")
 
-    # Load and filter data
+    # Date period string for display
+    date_period = f"{date_from.strftime('%Y-%m-%d')}" if date_from == date_to else f"{date_from.strftime('%Y-%m-%d')} to {date_to.strftime('%Y-%m-%d')}"
+
     dfs = []
     funds = all_funds if selected_fund == "All Funds" else [selected_fund]
     required = {"Date", "Classification", "Stock", "Buy_Sell", "Broker", "Volume", "Price"}
@@ -72,65 +62,75 @@ def show_equity_monitor_page():
 
     full_df = pd.concat(dfs, ignore_index=True)
 
-    # Formatting helpers
-    def fmt_volume(x):
-        return f"{x:,.0f}"
     def fmt_value(x):
         return f"₱{x:,.2f}"
-    def fmt_m(val):
-        return f"₱{val:.1f} M" if val != 0 else ""
 
-    def format_df(df, vol_col="Volume", val_col="Value"):
-        df = df.copy()
-        if vol_col in df.columns:
-            df[vol_col] = df[vol_col].apply(fmt_volume)
-        if val_col in df.columns:
-            df[val_col] = df[val_col].apply(fmt_value)
-        return df
+    def fmt_value_millions(x):
+        return f"₱{x:,.1f}M" if x != 0 else ""
 
-    # Display raw data
+    def format_net(val):
+        color = "green" if val >= 0 else "red"
+        return f"<span style='color:{color}'>₱{val:,.2f}</span>"
+
+    def format_pct(val):
+        return f"{val:,.2f}%" if val > 0 else "0.00%"
+
     st.subheader(f"📁 Data for: {selected_fund}")
-    st.dataframe(format_df(full_df))
+    full_df_display = full_df.copy()
+    full_df_display["Value"] = full_df_display["Value"].apply(fmt_value)
+    st.dataframe(full_df_display)
 
-    # Generate summary
-    if analysis_type == "Summary by Fund and Buy/Sell with Total":
-        summary = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
-    elif analysis_type == "Summary by Classification":
-        summary = full_df.groupby("Classification")["Value"].sum().reset_index()
-    elif analysis_type == "Summary by Buy/Sell":
-        summary = full_df.groupby("Buy_Sell")["Value"].sum().reset_index()
-    elif analysis_type == "Summary by Stock":
-        summary = full_df.groupby("Stock").agg(Total_Volume=("Volume", "sum"), Total_Value=("Value", "sum")).reset_index()
-        summary["Avg_Price"] = summary["Total_Value"] / summary["Total_Volume"]
-    elif analysis_type == "Summary by Broker":
-        summary = full_df.groupby("Broker")["Value"].sum().reset_index()
-    elif analysis_type == "Total Value by Buy/Sell":
-        summary = full_df.groupby("Buy_Sell")["Value"].sum().rename("Total Value").reset_index()
-    elif analysis_type == "Total Value by Stock":
-        summary = full_df.groupby(["Buy_Sell", "Stock"]) ["Value"].sum().rename("Total Value").reset_index()
-    elif analysis_type == "Summary by Date by Fund by Buy/Sell by Value":
-        summary = full_df.groupby(["Date", "Fund", "Buy_Sell"]) ["Value"].sum().reset_index()
-    else:
-        grp = full_df.groupby(["Stock", "Buy_Sell"]).agg(Total_Value=("Value", "sum"), Total_Shares=("Volume", "sum")).reset_index()
-        grp["Weighted_Avg_Price"] = grp["Total_Value"] / grp["Total_Shares"]
-        summary = grp.pivot(index="Stock", columns="Buy_Sell", values="Weighted_Avg_Price").reset_index().rename(columns={"B": "Avg_Buy", "S": "Avg_Sell"})
+    if show_custom_summary:
+        st.subheader("📊 Summary by Fund: Net Value")
+        st.markdown(f"**🗓️ Period: {date_period}**")
 
-    # Display summary
-    st.subheader("📊 Summary")
-    # Determine columns for formatting
-    vol_col = "Total_Volume" if "Total_Volume" in summary.columns else None
-    val_cols = [c for c in summary.columns if c in ["Value", "Total Value", "Total_Value", "Avg_Price", "Weighted_Avg_Price", "Avg_Buy", "Avg_Sell"]]
-    val_col = val_cols[0] if val_cols else None
-    st.dataframe(format_df(summary, vol_col or "", val_col or ""))
+        grouped = full_df.groupby(["Fund", "Buy_Sell"])["Value"].sum().unstack().fillna(0)
+        grouped = grouped.rename(columns={"B": "Buy Value", "S": "Sell Value"})
 
-    # Charts
+        grouped["Buy Value"] = grouped.get("Buy Value", 0.0)
+        grouped["Sell Value"] = grouped.get("Sell Value", 0.0)
+        grouped["Net Value"] = grouped["Buy Value"] - grouped["Sell Value"]
+        grouped["% Distribution"] = ((grouped["Buy Value"] + grouped["Sell Value"]) /
+                                     (grouped["Buy Value"] + grouped["Sell Value"]).sum()) * 100
+        grouped = grouped.reset_index()
+
+        total_row = {
+            "Fund": "Total",
+            "Buy Value": grouped["Buy Value"].sum(),
+            "Sell Value": grouped["Sell Value"].sum(),
+            "Net Value": grouped["Net Value"].sum(),
+            "% Distribution": 100.00
+        }
+        summary_df = pd.concat([grouped, pd.DataFrame([total_row])], ignore_index=True)
+
+        def fmt_currency(val):
+            return f"₱{val:,.2f}"
+
+        def fmt_net(val):
+            color = "green" if val >= 0 else "red"
+            return f"<span style='color:{color}'>₱{val:,.2f}</span>"
+
+        def fmt_pct(val):
+            return f"{val:,.2f}%"
+
+        summary_df["Buy Value"] = summary_df["Buy Value"].apply(fmt_currency)
+        summary_df["Sell Value"] = summary_df["Sell Value"].apply(fmt_currency)
+        summary_df["Net Value"] = summary_df["Net Value"].apply(fmt_net)
+        summary_df["% Distribution"] = summary_df["% Distribution"].apply(fmt_pct)
+
+        summary_df = summary_df[["Fund", "Buy Value", "Sell Value", "Net Value", "% Distribution"]]
+
+        st.markdown("<style>table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 8px; }</style>", unsafe_allow_html=True)
+        st.markdown(summary_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+
     if chart_fund:
         st.subheader("Bar Chart: Total Value by Fund & Buy/Sell")
-        cd = full_df.groupby(["Fund", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0) / 1e6
-        ax = cd.plot(kind="bar", figsize=(10,5), title="Total Value by Fund & Buy/Sell (₱M)")
+        cd = full_df.groupby(["Fund", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1e6
+        title = f"Total Value by Fund & Buy/Sell (₱M) — {date_period}"
+        ax = cd.plot(kind="bar", figsize=(10, 5), title=title)
         ax.set_ylabel("₱ Millions")
         for cont in ax.containers:
-            ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+            ax.bar_label(cont, labels=[fmt_value_millions(v) for v in cont.datavalues], fontsize=8)
         st.pyplot(plt)
 
     if chart_stock:
@@ -139,20 +139,50 @@ def show_equity_monitor_page():
         sel = st.multiselect("Select Stocks:", stocks, default=stocks)
         if sel:
             fd = full_df[full_df["Stock"].isin(sel)]
-            cd = fd.groupby(["Stock", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0)/1e6
-            ax = cd.plot(kind="bar", figsize=(12,6), title="Buy/Sell by Selected Stocks (₱M)")
+            cd = fd.groupby(["Stock", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1e6
+            title = f"Buy/Sell by Selected Stocks (₱M) — {date_period}"
+            ax = cd.plot(kind="bar", figsize=(12, 6), title=title)
             ax.set_ylabel("₱ Millions")
             for cont in ax.containers:
-                ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+                ax.bar_label(cont, labels=[fmt_value_millions(v) for v in cont.datavalues], fontsize=8)
             st.pyplot(plt)
         else:
             st.warning("Please select at least one stock.")
 
     if chart_broker:
         st.subheader("Bar Chart: Buy/Sell by Broker")
-        cd = full_df.groupby(["Broker", "Buy_Sell"]) ["Value"].sum().unstack().fillna(0)/1e6
-        ax = cd.plot(kind="bar", figsize=(12,6), title="Buy/Sell by Broker (₱M)")
+        cd = full_df.groupby(["Broker", "Buy_Sell"])["Value"].sum().unstack().fillna(0) / 1e6
+        title = f"Buy/Sell by Broker (₱M) — {date_period}"
+        ax = cd.plot(kind="bar", figsize=(12, 6), title=title)
         ax.set_ylabel("₱ Millions")
         for cont in ax.containers:
-            ax.bar_label(cont, labels=[fmt_m(v) for v in cont.datavalues], fontsize=8)
+            ax.bar_label(cont, labels=[fmt_value_millions(v) for v in cont.datavalues], fontsize=8)
         st.pyplot(plt)
+
+    # New Report: Weighted Average Price with Volume and Value
+    st.subheader("📘 Weighted Average Price with Volume and Value by Date, Fund, Buy/Sell, Stock")
+
+    weighted_df = full_df.copy()
+
+    # Compute Value if not already present
+    if 'Value' not in weighted_df.columns:
+        weighted_df["Value"] = weighted_df["Volume"] * weighted_df["Price"]
+
+    weighted_summary = weighted_df.groupby(["Date", "Fund", "Buy_Sell", "Stock"]).agg(
+        Total_Volume=("Volume", "sum"),
+        Total_Value=("Value", "sum")
+    ).reset_index()
+
+    weighted_summary["Weighted_Avg_Price"] = (
+        weighted_summary["Total_Value"] / weighted_summary["Total_Volume"]
+    ).round(2)
+
+    weighted_summary["Total_Value"] = weighted_summary["Total_Value"].round(2)
+
+    # Format columns
+    weighted_summary["Total_Volume"] = weighted_summary["Total_Volume"].apply(lambda x: f"{x:,.0f}")
+    weighted_summary["Total_Value"] = weighted_summary["Total_Value"].apply(lambda x: f"₱{x:,.2f}")
+    weighted_summary["Weighted_Avg_Price"] = weighted_summary["Weighted_Avg_Price"].apply(lambda x: f"₱{x:,.2f}")
+
+    # Display table
+    st.dataframe(weighted_summary, use_container_width=True)
