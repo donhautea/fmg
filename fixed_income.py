@@ -167,32 +167,45 @@ def show_fixed_income_page():
         else:
             st.info("Coupon schedule and reports are available for GS, CBN_Php, and CBN_USD datasets only.")
 
-        st.subheader("🔍 Filtering Reports by Reference and Fund")
-        reference_column = remark_col
-        if reference_column in df.columns:
-            refs = sorted(df[reference_column].dropna().unique())
-            sel_ref = st.selectbox("Select Reference", ["All"] + refs)
-            if sel_ref != "All":
-                df = df[df[reference_column] == sel_ref]
+        # Filtering by Reference and Fund Columns (Retained)
+        references = sorted(df[remark_col].dropna().unique()) if remark_col in df.columns else []
+        selected_refs = st.multiselect("Select Reference(s)", options=references, default=references if references else [])
+
         fund_cols = [c for c in df.columns if "Face_Amount_" in c or c.endswith("_Outstanding")]
-        sel_fund_col = st.selectbox("Select Fund Column", fund_cols)
-        if "Remaining_Term_Yrs" in df.columns:
+        selected_funds = st.multiselect("Select Fund Column(s)", options=fund_cols, default=fund_cols if fund_cols else [])
+
+        if "Remaining_Term_Yrs" in df.columns and not df["Remaining_Term_Yrs"].isna().all():
             tmin, tmax = float(df["Remaining_Term_Yrs"].min()), float(df["Remaining_Term_Yrs"].max())
             sel_term = st.slider("Filter by Remaining Term (Years)", min_value=tmin, max_value=tmax, value=(tmin, tmax))
             df = df[df["Remaining_Term_Yrs"].between(*sel_term)]
-        if sel_fund_col in df.columns:
-            vals = pd.to_numeric(df[sel_fund_col], errors="coerce")
-            if selected_dataset.endswith("_USD") and exchange_rate:
-                vals *= exchange_rate
-                currency_label = "PhP"
-            else:
-                currency_label = "USD" if selected_dataset.endswith("_USD") else "PhP"
-            total = vals.sum()
-            st.markdown(f"### 💰 Total for **{sel_fund_col}**: {total:,.2f} {currency_label}")
-            disp = [sel_fund_col, reference_column]
-            if "Remaining_Term_Yrs" in df.columns:
-                disp.append("Remaining_Term_Yrs")
-            fmtrs = {c: "{:,.2f}" for c in disp if df[c].dtype.kind in "fi"}
-            st.dataframe(df[disp].style.format(fmtrs))
+
+        if selected_refs and selected_funds:
+            df_filtered = df[df[remark_col].isin(selected_refs)].copy()
+            for fund_col in selected_funds:
+                df_filtered[fund_col] = pd.to_numeric(df_filtered[fund_col], errors="coerce")
+                if selected_dataset.endswith("_USD") and exchange_rate:
+                    df_filtered[fund_col] *= exchange_rate
+
+            disp_cols = selected_funds + [remark_col]
+            if "Remaining_Term_Yrs" in df_filtered.columns:
+                disp_cols.append("Remaining_Term_Yrs")
+
+            totals = df_filtered[selected_funds].sum().to_frame("Total_By_Fund").T
+            grand_total = totals[selected_funds].sum(axis=1).values[0]
+            totals["Total_All_Funds"] = grand_total
+
+            currency_label = "PhP" if exchange_rate or selected_dataset.endswith("_Php") else "USD"
+
+            st.markdown(f"### 💰 Total for Selected References and Funds ({currency_label})")
+            st.dataframe(totals.style.format("{:,.2f}"))
+
+            formatters = {col: "{:,.2f}" for col in selected_funds if df_filtered[col].dtype.kind in "fi"}
+            st.dataframe(df_filtered[disp_cols].style.format(formatters))
+
+        elif not selected_refs:
+            st.info("Please select at least one reference.")
+        elif not selected_funds:
+            st.info("Please select at least one fund column.")
+
     else:
         st.warning(f"{selected_dataset} not yet loaded. Please upload a file or check the default path.")
