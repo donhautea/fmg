@@ -14,8 +14,8 @@ from duration_convexity import show_duration_convexity_page
 from techanalysis import show_techanalysis_page
 from demographics_app import show_demographics_page
 from pdf_viewer import show_pdf_viewer_page
-from equity_market_prices import show_equity_market_prices_page  # ✅ NEW IMPORT
-
+from equity_market_prices import show_equity_market_prices_page
+from coupon_maturity_summary import show_coupon_maturity_summary_page  # ✅ NEW IMPORT
 
 def main():
     st.set_page_config(
@@ -24,52 +24,64 @@ def main():
     )
     st.title("Investment Portfolio Analysis")
 
-    page = st.sidebar.selectbox(
-        "Select Analysis Page:",
-        [
+    # Parent and Subpage mapping
+    page_structure = {
+        "Collection": [
             "Collection Report",
             "Collection Compare",
+            "Demographics Dashboard"
+        ],
+        "Equity Asset": [
             "Equity Portfolio Analysis",
             "Equity Transaction Update",
-            "Stock Data Viewer",          # ✅ NEW MENU OPTION
+            "Stock Data Viewer",
             "Equity Portfolio Monitoring",
+            "Technical Analysis"
+        ],
+        "Fixed Income Asset": [
             "Fixed Income",
-            "Portfolio / ROI",
             "Fixed Income Statistical Data",
             "Duration, Convexity vs Rate Cuts",
-            "Technical Analysis",
-            "Demographics Dashboard",
+            "Coupon and Maturities Consolidated Report"   # ✅ NEW ENTRY
+        ],
+        "Other Analysis": [
+            "Portfolio / ROI",
             "PDF Viewer"
         ]
-    )
+    }
 
-    if page == "Collection Report":
+    parent_selection = st.sidebar.selectbox("Select Analysis Category:", list(page_structure.keys()))
+    sub_selection = st.sidebar.selectbox("Select Specific Page:", page_structure[parent_selection])
+
+    # Routing logic
+    if sub_selection == "Collection Report":
         show_collection_page()
-    elif page == "Collection Compare":
+    elif sub_selection == "Collection Compare":
         show_collection_compare_page()
-    elif page == "Equity Portfolio Analysis":
-        show_equities_page()
-    elif page == "Equity Transaction Update":
-        show_equity_trans_page()
-    elif page == "Stock Data Viewer":
-        show_equity_market_prices_page()        # ✅ CALL NEW FUNCTION
-    elif page == "Equity Portfolio Monitoring":
-        show_equity_monitor_page()
-    elif page == "Fixed Income":
-        show_fixed_income_page()
-    elif page == "Portfolio / ROI":
-        show_portfolio_roi_page()
-    elif page == "Fixed Income Statistical Data":
-        show_fi_analysis()
-    elif page == "Duration, Convexity vs Rate Cuts":
-        show_duration_convexity_page()
-    elif page == "Technical Analysis":
-        show_techanalysis_page()
-    elif page == "Demographics Dashboard":
+    elif sub_selection == "Demographics Dashboard":
         show_demographics_page()
-    elif page == "PDF Viewer":
+    elif sub_selection == "Equity Portfolio Analysis":
+        show_equities_page()
+    elif sub_selection == "Equity Transaction Update":
+        show_equity_trans_page()
+    elif sub_selection == "Stock Data Viewer":
+        show_equity_market_prices_page()
+    elif sub_selection == "Equity Portfolio Monitoring":
+        show_equity_monitor_page()
+    elif sub_selection == "Technical Analysis":
+        show_techanalysis_page()
+    elif sub_selection == "Fixed Income":
+        show_fixed_income_page()
+    elif sub_selection == "Fixed Income Statistical Data":
+        show_fi_analysis()
+    elif sub_selection == "Duration, Convexity vs Rate Cuts":
+        show_duration_convexity_page()
+    elif sub_selection == "Coupon and Maturities Consolidated Report":
+        show_coupon_maturity_summary_page()
+    elif sub_selection == "Portfolio / ROI":
+        show_portfolio_roi_page()
+    elif sub_selection == "PDF Viewer":
         show_pdf_viewer_page()
-
 
 if __name__ == "__main__":
     main()
