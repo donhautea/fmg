@@ -191,7 +191,11 @@ def show_fixed_income_page():
                 disp_cols.append("Remaining_Term_Yrs")
 
             totals = df_filtered[selected_funds].sum().to_frame("Total_By_Fund").T
-            grand_total = totals[selected_funds].sum(axis=1).values[0]
+            if selected_dataset.startswith("GS_Consolidated"):
+                filtered_funds = [col for col in selected_funds if col != "Face_Amount_Consolidated"]
+            else:
+                filtered_funds = selected_funds
+            grand_total = totals[filtered_funds].sum(axis=1).values[0]
             totals["Total_All_Funds"] = grand_total
 
             currency_label = "PhP" if exchange_rate or selected_dataset.endswith("_Php") else "USD"
