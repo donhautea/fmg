@@ -15,7 +15,8 @@ from techanalysis import show_techanalysis_page
 from demographics_app import show_demographics_page
 from pdf_viewer import show_pdf_viewer_page
 from equity_market_prices import show_equity_market_prices_page
-from coupon_maturity_summary import show_coupon_maturity_summary_page  # ✅ NEW IMPORT
+from coupon_maturity_summary import show_coupon_maturity_summary_page
+from psei import show_psei_page  # ✅ NEW IMPORT
 
 def main():
     st.set_page_config(
@@ -36,13 +37,14 @@ def main():
             "Equity Transaction Update",
             "Stock Data Viewer",
             "Equity Portfolio Monitoring",
-            "Technical Analysis"
+            "Technical Analysis",
+            "PSEI Analysis"  # ✅ NEW ENTRY
         ],
         "Fixed Income Asset": [
             "Fixed Income",
             "Fixed Income Statistical Data",
             "Duration, Convexity vs Rate Cuts",
-            "Coupon and Maturities Consolidated Report"   # ✅ NEW ENTRY
+            "Coupon and Maturities Consolidated Report"
         ],
         "Other Analysis": [
             "Portfolio / ROI",
@@ -70,6 +72,8 @@ def main():
         show_equity_monitor_page()
     elif sub_selection == "Technical Analysis":
         show_techanalysis_page()
+    elif sub_selection == "PSEI Analysis":
+        show_psei_page()  # ✅ ROUTING TO NEW PAGE
     elif sub_selection == "Fixed Income":
         show_fixed_income_page()
     elif sub_selection == "Fixed Income Statistical Data":
