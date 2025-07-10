@@ -17,6 +17,7 @@ from pdf_viewer import show_pdf_viewer_page
 from equity_market_prices import show_equity_market_prices_page
 from coupon_maturity_summary import show_coupon_maturity_summary_page
 from psei import show_psei_page  # ✅ NEW IMPORT
+from integrated_weighted_vs_vwap_app import show_weighted_vs_vwap_page  # ✅ NEW IMPORT
 
 def main():
     st.set_page_config(
@@ -38,7 +39,8 @@ def main():
             "Stock Data Viewer",
             "Equity Portfolio Monitoring",
             "Technical Analysis",
-            "PSEI Analysis"  # ✅ NEW ENTRY
+            "PSEI Analysis",
+            "WAP vs Market VWAP Comparator"  # ✅ NEW ENTRY
         ],
         "Fixed Income Asset": [
             "Fixed Income",
@@ -73,7 +75,9 @@ def main():
     elif sub_selection == "Technical Analysis":
         show_techanalysis_page()
     elif sub_selection == "PSEI Analysis":
-        show_psei_page()  # ✅ ROUTING TO NEW PAGE
+        show_psei_page()
+    elif sub_selection == "WAP vs Market VWAP Comparator":
+        show_weighted_vs_vwap_page()  # ✅ ROUTING TO NEW PAGE
     elif sub_selection == "Fixed Income":
         show_fixed_income_page()
     elif sub_selection == "Fixed Income Statistical Data":
