@@ -1,3 +1,5 @@
+# integrated_weighted_vs_vwap_app.py
+
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -81,9 +83,6 @@ def show_weighted_vs_vwap_page():
     select_all_codes = st.sidebar.checkbox("Select All Codes", value=True)
     selected_codes = all_codes if select_all_codes else st.sidebar.multiselect("Choose Stock Code", all_codes, default=[])
 
-    st.sidebar.radio("Chart Type", options=["Line", "Bar"], key="chart_type")
-    st.sidebar.header("📊 Visualization Filters")
-
     if uploaded_equity_file and selected_codes:
         wap_df = load_equity_monitor_data(uploaded_equity_file, selected_fund, date_from, date_to)
         vwapex_df = load_vwapex_data(date_from, date_to, selected_codes)
@@ -104,32 +103,31 @@ def show_weighted_vs_vwap_page():
             st.subheader("📘 Merged Data with Disparity")
             st.dataframe(merged_df)
 
+            # Sidebar filters
+            st.sidebar.header("📊 Visualization Filters")
             selected_stock = st.sidebar.selectbox("Filter by Stock", ["All"] + sorted(merged_df["code"].unique().tolist()))
-            filter_df = merged_df if selected_stock == "All" else merged_df[merged_df["code"] == selected_stock]
+            exclude_codes = st.sidebar.multiselect("Exclude Stock Codes", sorted(merged_df["code"].unique().tolist()), default=[])
+            chart_type = st.sidebar.radio("Chart Type", ["Line", "Bar"])
+
+            filter_df = merged_df.copy()
+            if selected_stock != "All":
+                filter_df = filter_df[filter_df["code"] == selected_stock]
+            if exclude_codes:
+                filter_df = filter_df[~filter_df["code"].isin(exclude_codes)]
 
             if not filter_df.empty:
                 for action in ['B', 'S']:
                     subset = filter_df[filter_df["Buy_Sell"] == action]
                     if not subset.empty:
-                        if st.session_state.chart_type == "Line":
-                            fig = px.line(
-                                subset,
-                                x="Date",
-                                y=["Weighted_Avg_Price", "market_vwap_ex"],
-                                markers=True,
-                                title=f"{'Buy' if action == 'B' else 'Sell'}: {selected_stock} – WAP vs Market VWAP"
-                            )
-                        else:
-                            fig = px.bar(
-                                subset,
-                                x="Date",
-                                y=["Weighted_Avg_Price", "market_vwap_ex"],
-                                barmode="group",
-                                title=f"{'Buy' if action == 'B' else 'Sell'}: {selected_stock} – WAP vs Market VWAP"
-                            )
+                        fig = (
+                            px.line(subset, x="Date", y=["Weighted_Avg_Price", "market_vwap_ex"], markers=True)
+                            if chart_type == "Line" else
+                            px.bar(subset, x="Date", y=["Weighted_Avg_Price", "market_vwap_ex"], barmode="group")
+                        )
+                        fig.update_layout(title=f"{'Buy' if action == 'B' else 'Sell'}: {selected_stock} – WAP vs Market VWAP")
                         st.plotly_chart(fig, use_container_width=True)
 
-                # Daily Summary
+                # Daily Trade Summary
                 st.markdown("## 📈 Daily Trade Performance Summary")
 
                 def compute_stats(group):
@@ -137,9 +135,8 @@ def show_weighted_vs_vwap_page():
                     total_value = group['Total_Value'].sum()
                     internal_vwap = total_value / total_volume if total_volume != 0 else None
                     market_vwap_avg = group['market_vwap_ex'].mean()
-                    disparity = internal_vwap - market_vwap_avg if internal_vwap is not None and market_vwap_avg is not None else None
+                    disparity = internal_vwap - market_vwap_avg if internal_vwap and market_vwap_avg else None
                     price_std = group['Weighted_Avg_Price'].std()
-
                     result = {
                         'Trades': group.shape[0],
                         'Total Volume': total_volume,
@@ -150,47 +147,31 @@ def show_weighted_vs_vwap_page():
                         'Min Price': group['Weighted_Avg_Price'].min(),
                         'Max Price': group['Weighted_Avg_Price'].max()
                     }
-
-                    if price_std > 0:
+                    if price_std and price_std > 0:
                         result['Price StdDev'] = price_std
-
                     return pd.Series(result)
 
                 group_cols = ['Date', 'Buy_Sell'] if selected_stock != "All" else ['Date', 'code', 'Buy_Sell']
-                stats_df = (
-                    filter_df.groupby(group_cols)
-                    .apply(compute_stats)
-                    .reset_index()
-                    .sort_values(group_cols)
-                )
+                stats_df = filter_df.groupby(group_cols).apply(compute_stats).reset_index()
                 st.dataframe(stats_df)
 
-                # Summary & Insights
+                # Execution Insights
                 st.markdown("## 📌 Execution Summary & Insights by Transaction Type")
-
                 for action in ['B', 'S']:
                     action_name = "Buy" if action == 'B' else "Sell"
                     subset = stats_df[stats_df['Buy_Sell'] == action]
-
-                    st.markdown(f"### 🔍 {action_name} Transactions")
-
                     if subset.empty:
-                        st.warning(f"No {action_name.lower()} data available for this selection.")
                         continue
-
                     mean_disp = subset['VWAP Disparity'].mean()
                     min_disp = subset['VWAP Disparity'].min()
                     max_disp = subset['VWAP Disparity'].max()
-                    trade_days = subset['Date'].nunique()
-
                     st.markdown(f"""
-                    - **Trade Days:** {trade_days}
-                    - **Average VWAP Disparity:** {'{:+.2f}'.format(mean_disp)}
-                    - **Best Execution (Lowest Disparity):** {'{:+.2f}'.format(min_disp)}
-                    - **Worst Execution (Highest Disparity):** {'{:+.2f}'.format(max_disp)}
+                    ### 🔍 {action_name} Transactions
+                    - Trade Days: {subset['Date'].nunique()}
+                    - Average VWAP Disparity: {mean_disp:+.2f}
+                    - Best Execution: {min_disp:+.2f}
+                    - Worst Execution: {max_disp:+.2f}
                     """)
-
-                    st.markdown("**Interpretation:**")
                     if action == 'B':
                         if mean_disp < 0:
                             st.success("✅ Buy execution was better than market VWAP.")
@@ -206,19 +187,18 @@ def show_weighted_vs_vwap_page():
                         else:
                             st.info("ℹ️ Sell execution matched market VWAP.")
 
-                # Summary of All Stocks
+                # Summary by Stock
                 st.markdown("## 📊 Summary of All Stocks by Buy/Sell")
 
                 def summarize_by_stock(group):
                     total_volume = group['Total_Volume'].sum()
                     total_value = group['Total_Value'].sum()
-                    internal_vwap = total_value / total_volume if total_volume != 0 else None
+                    internal_vwap = total_value / total_volume if total_volume else None
                     market_vwap = group['market_vwap_ex'].mean()
-                    avg_disp = internal_vwap - market_vwap if internal_vwap is not None and market_vwap is not None else None
+                    avg_disp = internal_vwap - market_vwap if internal_vwap and market_vwap else None
                     min_disp = group['Disparity'].min()
                     max_disp = group['Disparity'].max()
                     trade_days = group['Date'].nunique()
-
                     action = group['Buy_Sell'].iloc[0]
                     if avg_disp is None:
                         interpretation = "N/A"
@@ -228,7 +208,6 @@ def show_weighted_vs_vwap_page():
                         interpretation = "✅ Better Sell" if avg_disp > 0 else "⚠️ Not Better Sell" if avg_disp < 0 else "ℹ️ Neutral Sell"
                     else:
                         interpretation = "Unknown"
-
                     return pd.Series({
                         'Total Volume': total_volume,
                         'Total Value': total_value,
@@ -241,30 +220,17 @@ def show_weighted_vs_vwap_page():
                         'Interpretation': interpretation
                     })
 
-                summary_all = (
-                    filter_df.groupby(['code', 'Buy_Sell'])
-                    .apply(summarize_by_stock)
-                    .reset_index()
-                    .sort_values(['code', 'Buy_Sell'])
-                )
+                summary_all = filter_df.groupby(['code', 'Buy_Sell']).apply(summarize_by_stock).reset_index()
                 st.dataframe(summary_all)
 
                 # Downloads
-                st.download_button("📥 Download Filtered CSV",
-                                   data=filter_df.to_csv(index=False).encode("utf-8"),
-                                   file_name=f"{selected_fund}_{selected_stock}_filtered.csv")
-
-                st.download_button("📥 Download Daily Trade Summary CSV",
-                                   data=stats_df.to_csv(index=False).encode("utf-8"),
-                                   file_name=f"{selected_fund}_{selected_stock}_daily_summary.csv")
-
-                st.download_button("📥 Download All-Stock Summary CSV",
-                                   data=summary_all.to_csv(index=False).encode("utf-8"),
-                                   file_name=f"{selected_fund}_all_stock_summary.csv")
+                st.download_button("📥 Download Filtered CSV", data=filter_df.to_csv(index=False), file_name="filtered_data.csv")
+                st.download_button("📥 Download Daily Summary", data=stats_df.to_csv(index=False), file_name="daily_summary.csv")
+                st.download_button("📥 Download Stock Summary", data=summary_all.to_csv(index=False), file_name="stock_summary.csv")
 
             else:
-                st.warning("No data found for selected filters.")
+                st.warning("No data after applying filters.")
         else:
-            st.warning("Empty data from uploaded files or database.")
+            st.warning("No data from uploaded files or VWAPEx.")
     else:
-        st.info("Please upload the Equity Monitor file and ensure VWAPEx codes are selected.")
+        st.info("Upload file and select stock codes to begin.")
