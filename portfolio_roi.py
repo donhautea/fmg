@@ -65,8 +65,8 @@ def show_portfolio_roi_page():
             fund_data[sheet] = extract_fund_data(df_raw, start_col, end_col, sheet_name=sheet, format_roi=format_roi)
 
         common_dates = set(fund_data["ROI"]["Date"]) & set(fund_data["INVESTMENT_LEVEL"]["Date"]) & set(fund_data["INVESTMENT_INCOME"]["Date"])
-        sorted_dates = sorted(list(common_dates))
-        date_choice = st.sidebar.selectbox("Select Date", sorted_dates)
+        sorted_dates = sorted(list(common_dates), reverse=True)  # Sort descending
+        date_choice = st.sidebar.selectbox("Select Date", sorted_dates, index=0)  # Default to latest
 
         def get_row(df):
             row = df[df["Date"] == date_choice]
@@ -100,7 +100,6 @@ def show_portfolio_roi_page():
                     "ROI": roi_value
                 }])], ignore_index=True)
 
-            # Safely find the column for 'Overall ROI' regardless of formatting
             overall_roi_val = None
             for col in roi_row.index:
                 if str(col).strip().lower() == "overall roi":
