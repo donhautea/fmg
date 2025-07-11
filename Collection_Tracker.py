@@ -1,39 +1,26 @@
-# Collection_Tracker.py
+# collection_tracker.py
 
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 
 def show_collection_tracker_page():
-    # Page setup
     st.set_page_config(page_title="CMD WISP & MPF Collection Viewer", layout="wide")
     st.title("📊 CMD WISP Tracker & MPF Collection Report")
 
-    # Page setup
-    st.set_page_config(page_title="CMD WISP & MPF Collection Viewer", layout="wide")
-    st.title("📊 CMD WISP Tracker & MPF Collection Report")
+    wisp_file = st.sidebar.file_uploader("Step 1: Upload CMD WISP Tracker (.xlsx)", type=["xlsx"])
+    mpf_file = st.sidebar.file_uploader("Step 2: Upload MPF Collection Report (.csv)", type=["csv"])
 
-    # Sidebar Uploaders
-    st.sidebar.header("Step 1: Upload CMD WISP Tracker")
-    wisp_file = st.sidebar.file_uploader("Choose an Excel (.xlsx) file (CMD WISP Tracker File)", type=["xlsx"])
-
-    st.sidebar.header("Step 2: Upload MPF Collection Report")
-    mpf_file = st.sidebar.file_uploader("Choose a CSV file (MPF Collection Report)", type=["csv"])
-
-    # Sidebar view toggles
-    st.sidebar.header("View Options")
     show_wisp_raw = st.sidebar.checkbox("Show Full Parsed Dataset (WISP Tracker)")
     show_mpf_raw = st.sidebar.checkbox("Show Full Parsed Dataset (MPF Collection Report)")
     show_merged = st.sidebar.checkbox("Show CMD vs MPF Comparison")
 
-    # Initialize global containers
     combined_df = pd.DataFrame()
     latest_wisp_df = pd.DataFrame()
     mpf_df = pd.DataFrame()
     mpf_summary_df = pd.DataFrame()
     merged_df = pd.DataFrame()
 
-    # ------------------ CMD WISP Tracker Processing ------------------
     try:
         if wisp_file:
             xl = pd.ExcelFile(wisp_file)
@@ -45,24 +32,22 @@ def show_collection_tracker_page():
                     if sheet_date < pd.to_datetime("2020-12-01"):
                         continue
                     formatted_month = sheet_date.strftime("%Y-%m")
-                except Exception:
-                    st.warning(f"⚠️ Skipping unrecognized sheet name format: {sheet_name}")
+                except:
+                    st.warning(f"⚠️ Skipping sheet: {sheet_name}")
                     continue
 
                 if sheet_date < pd.to_datetime("2021-06-01"):
                     df = pd.read_excel(xl, sheet_name=sheet_name, header=None, skiprows=4, usecols="A:C")
                     df.columns = ["Run Date", "Amount", "Additional"]
                     df["Payment Date"] = None
-                    df["Run Date"] = pd.to_datetime(df["Run Date"], errors="coerce").dt.strftime('%Y-%m-%d')
-                    df["Run Date"].fillna(method='ffill', inplace=True)
                 else:
                     df = pd.read_excel(xl, sheet_name=sheet_name, header=None, skiprows=4, usecols="A:D")
                     df.columns = ["Payment Date", "Run Date", "Amount", "Additional"]
-                    df["Payment Date"] = pd.to_datetime(df["Payment Date"], errors="coerce").dt.strftime('%Y-%m-%d')
-                    df["Run Date"] = pd.to_datetime(df["Run Date"], errors="coerce").dt.strftime('%Y-%m-%d')
-                    df["Payment Date"].fillna(method='ffill', inplace=True)
-                    df["Run Date"].fillna(method='ffill', inplace=True)
 
+                df["Payment Date"] = pd.to_datetime(df["Payment Date"], errors="coerce").dt.strftime('%Y-%m-%d')
+                df["Run Date"] = pd.to_datetime(df["Run Date"], errors="coerce").dt.strftime('%Y-%m-%d')
+                df["Payment Date"].fillna(method='ffill', inplace=True)
+                df["Run Date"].fillna(method='ffill', inplace=True)
                 df.dropna(how='all', inplace=True)
                 df["Applicable Month"] = formatted_month
                 df = df[["Payment Date", "Run Date", "Amount", "Applicable Month"]]
@@ -98,13 +83,12 @@ def show_collection_tracker_page():
     except Exception as e:
         st.error(f"❌ Error reading CMD WISP Tracker File: {e}")
 
-    # ------------------ MPF Collection CSV Processing ------------------
     try:
         if mpf_file:
             mpf_df = pd.read_csv(mpf_file, parse_dates=["Posting_Date"])
 
             if "Total_Amount" not in mpf_df.columns:
-                st.error("❌ Column 'Total_Amount' is missing from the MPF Collection CSV.")
+                st.error("❌ Column 'Total_Amount' is missing.")
             else:
                 mpf_df["Total_Amount"] = (
                     mpf_df["Total_Amount"]
@@ -133,7 +117,6 @@ def show_collection_tracker_page():
     except Exception as e:
         st.error(f"❌ Error reading MPF Collection Report: {e}")
 
-    # ------------------ MERGE COMPARISON REPORT ------------------
     try:
         if not latest_wisp_df.empty and not mpf_summary_df.empty and show_merged:
             merged_df = pd.merge(
@@ -143,11 +126,8 @@ def show_collection_tracker_page():
                 how="outer"
             ).sort_values("Applicable Month")
 
-            # Ensure numeric values
             merged_df["Amount_CMD"] = pd.to_numeric(merged_df["Amount_CMD"], errors="coerce").fillna(0)
             merged_df["Amount_Collection_Report"] = pd.to_numeric(merged_df["Amount_Collection_Report"], errors="coerce").fillna(0)
-
-            # Calculate Difference and Percentage (MPF / CMD) - 1
             merged_df["Difference"] = merged_df["Amount_Collection_Report"] - merged_df["Amount_CMD"]
             with pd.option_context("mode.use_inf_as_na", True):
                 merged_df["Percentage"] = (
@@ -155,13 +135,11 @@ def show_collection_tracker_page():
                 ) - 1
             merged_df["Percentage"] = merged_df["Percentage"].fillna(0)
 
-            # Calculate totals
             total_cmd = merged_df["Amount_CMD"].sum()
             total_mpf = merged_df["Amount_Collection_Report"].sum()
             total_diff = total_mpf - total_cmd
             total_pct = (total_mpf / total_cmd - 1) if total_cmd != 0 else 0
 
-            # Format for display
             merged_df["Amount_CMD"] = merged_df["Amount_CMD"].map("{:,.2f}".format)
             merged_df["Amount_Collection_Report"] = merged_df["Amount_Collection_Report"].map("{:,.2f}".format)
             merged_df["Difference"] = merged_df["Difference"].map("{:,.2f}".format)

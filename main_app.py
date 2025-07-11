@@ -16,8 +16,9 @@ from demographics_app import show_demographics_page
 from pdf_viewer import show_pdf_viewer_page
 from equity_market_prices import show_equity_market_prices_page
 from coupon_maturity_summary import show_coupon_maturity_summary_page
-from psei import show_psei_page  # ✅ NEW IMPORT
-from integrated_weighted_vs_vwap_app import show_weighted_vs_vwap_page  # ✅ NEW IMPORT
+from psei import show_psei_page
+from integrated_weighted_vs_vwap_app import show_weighted_vs_vwap_page
+from collection_tracker import show_collection_tracker_page  # ✅ New import
 
 def main():
     st.set_page_config(
@@ -26,13 +27,12 @@ def main():
     )
     st.title("Investment Portfolio Analysis")
 
-    # Parent and Subpage mapping
     page_structure = {
         "Collection": [
             "Collection Report",
             "Collection Compare",
             "Demographics Dashboard",
-            "CMG Tracker vs Collection Report" 
+            "CMG Tracker vs Collection Report"  # ✅ New page
         ],
         "Equity Asset": [
             "Equity Portfolio Analysis",
@@ -41,7 +41,7 @@ def main():
             "Equity Portfolio Monitoring",
             "Technical Analysis",
             "PSEI Analysis",
-            "WAP vs Market VWAP Comparator"  # ✅ NEW ENTRY
+            "WAP vs Market VWAP Comparator"
         ],
         "Fixed Income Asset": [
             "Fixed Income",
@@ -58,15 +58,14 @@ def main():
     parent_selection = st.sidebar.selectbox("Select Analysis Category:", list(page_structure.keys()))
     sub_selection = st.sidebar.selectbox("Select Specific Page:", page_structure[parent_selection])
 
-    # Routing logic
     if sub_selection == "Collection Report":
         show_collection_page()
     elif sub_selection == "Collection Compare":
         show_collection_compare_page()
-    elif sub_selection == "CMG Tracker vs Collection Report":
-        show_collection_tracker_page() 
     elif sub_selection == "Demographics Dashboard":
         show_demographics_page()
+    elif sub_selection == "CMG Tracker vs Collection Report":
+        show_collection_tracker_page()  # ✅ Routing
     elif sub_selection == "Equity Portfolio Analysis":
         show_equities_page()
     elif sub_selection == "Equity Transaction Update":
@@ -80,7 +79,7 @@ def main():
     elif sub_selection == "PSEI Analysis":
         show_psei_page()
     elif sub_selection == "WAP vs Market VWAP Comparator":
-        show_weighted_vs_vwap_page()  # ✅ ROUTING TO NEW PAGE
+        show_weighted_vs_vwap_page()
     elif sub_selection == "Fixed Income":
         show_fixed_income_page()
     elif sub_selection == "Fixed Income Statistical Data":
