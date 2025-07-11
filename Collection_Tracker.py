@@ -1,12 +1,10 @@
 # collection_tracker.py
 
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 
 def show_collection_tracker_page():
-    st.set_page_config(page_title="CMD WISP & MPF Collection Viewer", layout="wide")
     st.title("📊 CMD WISP Tracker & MPF Collection Report")
 
     wisp_file = st.sidebar.file_uploader("Step 1: Upload CMD WISP Tracker (.xlsx)", type=["xlsx"])
