@@ -31,7 +31,8 @@ def main():
         "Collection": [
             "Collection Report",
             "Collection Compare",
-            "Demographics Dashboard"
+            "Demographics Dashboard",
+            "CMG Tracker vs Collection Report" 
         ],
         "Equity Asset": [
             "Equity Portfolio Analysis",
@@ -62,6 +63,8 @@ def main():
         show_collection_page()
     elif sub_selection == "Collection Compare":
         show_collection_compare_page()
+    elif sub_selection == "CMG Tracker vs Collection Report":
+        show_collection_tracker_page() 
     elif sub_selection == "Demographics Dashboard":
         show_demographics_page()
     elif sub_selection == "Equity Portfolio Analysis":
