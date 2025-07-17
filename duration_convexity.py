@@ -88,8 +88,8 @@ def show_duration_convexity_page():
                 df = excel_data[key]
 
                 classes = df['Class'].dropna().unique().tolist()
-                selected_class = st.sidebar.selectbox("Select Class", classes)
-                df = df[df['Class'] == selected_class]
+                selected_classes = st.sidebar.multiselect("Select Class(es)", classes, default=classes)
+                df = df[df['Class'].isin(selected_classes)]
 
                 funds = df['Fund'].dropna().unique().tolist()
                 fund = st.sidebar.selectbox("Select Fund", funds)
@@ -123,7 +123,7 @@ def show_duration_convexity_page():
                 pct_change = -wa_mod * dy + 0.5 * wa_conv * dy**2
                 new_roi = roi_input + pct_change
 
-                st.subheader(f"Data for {selected_class} / {fund}")
+                st.subheader(f"Data for {', '.join(selected_classes)} / {fund}")
                 st.dataframe(df_extracted)
                 st.markdown(f"**Weighted-average Duration:** {wa_duration:.6f} years")
                 st.markdown(f"**Weighted-average Modified Duration:** {wa_mod:.6f} years")
@@ -135,5 +135,6 @@ def show_duration_convexity_page():
             for name, table in excel_data.items():
                 st.subheader(f"Sheet: {name}")
                 st.dataframe(table)
+
         except Exception as e:
             st.error(f"Error: {e}")

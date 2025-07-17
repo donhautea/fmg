@@ -59,6 +59,8 @@ def show_fixed_income_page():
     df = data_storage[selected_dataset]
 
     if df is not None:
+        funds = ["SSS", "EC", "FLEXI", "PESO", "MIA", "MPF", "NVPF"]
+
         for date_col in ["Issue_Date", "Issue_Value_Date", "Value_Date", "Maturity_Date"]:
             if date_col in df.columns:
                 df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
@@ -81,6 +83,55 @@ def show_fixed_income_page():
         end_date = st.sidebar.date_input("End Date", value=default_end_date, min_value=start_date)
         start_date = pd.to_datetime(start_date.strftime("%Y-%m-%d"))
         end_date = pd.to_datetime(end_date.strftime("%Y-%m-%d"))
+
+        # ================== Summary Total by Fund, by Class ==================
+        st.subheader(f"📘 Summary Total by Fund and Class ({currency_label})")
+
+        # Extract relevant columns
+        summary_rows = []
+        for fund in funds:
+            fac_col = f"Face_Amount_{fund}"
+            set_col = f"Settlement_Amount_{fund}"
+            for _, row in df.iterrows():
+                class_type = row.get("Class", "").strip().upper()
+                if class_type not in ["AC", "FVTPL", "FVOCI"]:
+                    continue
+                face = pd.to_numeric(row.get(fac_col), errors="coerce")
+                settle = pd.to_numeric(row.get(set_col), errors="coerce")
+                if pd.isna(face) and pd.isna(settle):
+                    continue
+                if selected_dataset.endswith("_USD") and exchange_rate:
+                    if not pd.isna(face): face *= exchange_rate
+                    if not pd.isna(settle): settle *= exchange_rate
+                summary_rows.append({
+                    "Fund": fund,
+                    "Class": class_type,
+                    "Face_Amount": face if not pd.isna(face) else 0,
+                    "Settlement_Amount": settle if not pd.isna(settle) else 0
+                })
+
+        summary_df = pd.DataFrame(summary_rows)
+
+        if not summary_df.empty:
+            pivot_face = summary_df.pivot_table(index="Fund", columns="Class", values="Face_Amount", aggfunc="sum", fill_value=0)
+            pivot_settle = summary_df.pivot_table(index="Fund", columns="Class", values="Settlement_Amount", aggfunc="sum", fill_value=0)
+
+            # Combine both face and settlement values with MultiIndex columns
+            combined_df = pd.concat(
+                {"Face_Amount": pivot_face, "Settlement_Amount": pivot_settle},
+                axis=1
+            ).round(2)
+
+            # Add Total row
+            total_row = combined_df.sum(numeric_only=True).to_frame().T
+            total_row.index = ["Total"]
+            combined_df = pd.concat([combined_df, total_row])
+
+            # Flatten column headers for display
+            combined_df.columns = [f"{v}_{k}" for k, v in combined_df.columns]
+            st.dataframe(combined_df.style.format("{:,.2f}"))
+        else:
+            st.info("No valid data available to generate summary.")
 
         ### Maturities Report
         df_maturity = df[df["Maturity_Date"].between(start_date, end_date)]
