@@ -19,6 +19,8 @@ from coupon_maturity_summary import show_coupon_maturity_summary_page
 from psei import show_psei_page
 from integrated_weighted_vs_vwap_app import show_weighted_vs_vwap_page
 from collection_tracker import show_collection_tracker_page  # ✅ New import
+from vwap_db_update import show_vwap_db_update_page
+from stock_db_bbupdate import show_stock_ohlc_update_page
 
 def main():
     st.set_page_config(
@@ -52,7 +54,11 @@ def main():
         "Other Analysis": [
             "Portfolio / ROI",
             "PDF Viewer"
-        ]
+        ],
+        "Database Update": [
+            "VWAP Database Update",
+            "Stock OHLC Database Update (bloomberg data)"
+        ],
     }
 
     parent_selection = st.sidebar.selectbox("Select Analysis Category:", list(page_structure.keys()))
@@ -92,6 +98,10 @@ def main():
         show_portfolio_roi_page()
     elif sub_selection == "PDF Viewer":
         show_pdf_viewer_page()
+    elif sub_selection == "VWAP Database Update":
+        show_vwap_db_update_page()
+    elif sub_selection == "Stock OHLC Database Update (bloomberg data)":
+        show_stock_ohlc_update_page()
 
 if __name__ == "__main__":
     main()
