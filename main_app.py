@@ -21,6 +21,7 @@ from integrated_weighted_vs_vwap_app import show_weighted_vs_vwap_page
 from collection_tracker import show_collection_tracker_page  # ✅ New import
 from vwap_db_update import show_vwap_db_update_page
 from stock_db_bbupdate import show_stock_ohlc_update_page
+from nvpf_portfolio import show_nvpf_portfolio_page
 
 def main():
     st.set_page_config(
@@ -53,6 +54,7 @@ def main():
         ],
         "Other Analysis": [
             "Portfolio / ROI",
+            "NVPF Portfolio: Contri vs Income",
             "PDF Viewer"
         ],
         "Database Update": [
@@ -96,6 +98,8 @@ def main():
         show_coupon_maturity_summary_page()
     elif sub_selection == "Portfolio / ROI":
         show_portfolio_roi_page()
+    elif sub_selection == "NVPF Portfolio: Contri vs Income":
+        show_nvpf_portfolio_page()
     elif sub_selection == "PDF Viewer":
         show_pdf_viewer_page()
     elif sub_selection == "VWAP Database Update":
